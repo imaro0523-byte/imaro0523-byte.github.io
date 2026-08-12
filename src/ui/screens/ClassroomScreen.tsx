@@ -11,7 +11,13 @@ import { createClassroom, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS } from '@/core/model/types';
-import { partitionByCount, PartitionError } from '@/core/solver/partition';
+import {
+  arrangeSizes,
+  hasUnevenSizes,
+  largerGroupCount,
+  partitionByCount,
+  PartitionError,
+} from '@/core/solver/partition';
 import { safeErrorMessage } from '@/lib/log';
 import { useAppStore } from '@/store/useAppStore';
 import { SeatMap } from '../components/SeatMap';
@@ -251,6 +257,8 @@ function GroupRoomBuilder() {
 
   const [groupCount, setGroupCount] = useState(6);
   const [gap, setGap] = useState(1);
+  /** Islands the teacher wants the larger groups to sit in, 0-based. */
+  const [bigSlots, setBigSlots] = useState<number[]>([]);
 
   const activeCount = students.filter((s) => s.status === 'active').length;
 
@@ -259,7 +267,8 @@ function GroupRoomBuilder() {
     // meaningful rather than empty.
     const total = activeCount > 0 ? activeCount : groupCount * 4;
     try {
-      return { sizes: partitionByCount(total, groupCount), total, error: null as string | null };
+      const base = partitionByCount(total, groupCount);
+      return { sizes: arrangeSizes(base, bigSlots), total, error: null as string | null };
     } catch (caught) {
       return {
         sizes: [] as number[],
@@ -267,7 +276,7 @@ function GroupRoomBuilder() {
         error: caught instanceof PartitionError ? caught.message : safeErrorMessage(caught),
       };
     }
-  }, [activeCount, groupCount]);
+  }, [activeCount, groupCount, bigSlots]);
 
   const build = () => {
     if (plan.sizes.length === 0) return;
@@ -297,7 +306,11 @@ function GroupRoomBuilder() {
             <button
               key={count}
               type="button"
-              onClick={() => setGroupCount(count)}
+              onClick={() => {
+                setGroupCount(count);
+                // Slot numbers only mean something for a given island count.
+                setBigSlots([]);
+              }}
               className={`rounded-lg border px-2.5 py-1 text-xs ${
                 groupCount === count
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
@@ -333,6 +346,46 @@ function GroupRoomBuilder() {
           ))}
         </div>
       </div>
+
+      {hasUnevenSizes(plan.sizes) && (
+        <div>
+          <span className="label">
+            인원이 많은 모둠 자리
+            {largerGroupCount(plan.sizes) > 1 && ` (${largerGroupCount(plan.sizes)}곳)`}
+          </span>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            {Math.max(...plan.sizes)}명 모둠을 어디에 둘지 고르세요. 고르지 않으면 앞쪽부터 채웁니다.
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {plan.sizes.map((size, index) => {
+              const isBig = size === Math.max(...plan.sizes);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() =>
+                    setBigSlots((current) => {
+                      const without = current.filter((slot) => slot !== index);
+                      if (without.length !== current.length) return without;
+                      // Keep only as many picks as there are larger groups,
+                      // dropping the oldest so a click always does something.
+                      return [...without, index].slice(-largerGroupCount(plan.sizes));
+                    })
+                  }
+                  className={`rounded-lg border px-2 py-1 text-xs ${
+                    isBig
+                      ? 'border-blue-500 bg-blue-50 font-semibold dark:bg-blue-950'
+                      : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                  aria-pressed={isBig}
+                >
+                  {index + 1}모둠 {size}명
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {plan.error ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">{plan.error}</p>

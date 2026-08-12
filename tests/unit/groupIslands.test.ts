@@ -7,9 +7,10 @@ import {
   hasGroupIslands,
   islandCapacities,
   islandShape,
-  islandsMatchSizes,
+  islandCapacityList,
   islandsPerRowFor,
   regroupFromSeats,
+  sameSizeMultiset,
 } from '@/core/layout/groupIslands';
 import { partitionByCount } from '@/core/solver/partition';
 import { solveGroupingByCount } from '@/core/solver/grouping';
@@ -110,11 +111,22 @@ describe('group classroom', () => {
     }
   });
 
-  it('recognises when the layout no longer matches the groups', () => {
-    const classroom = createGroupClassroom({ sizes: [5, 4, 4, 4, 4, 4] });
-    expect(islandsMatchSizes(classroom, [5, 4, 4, 4, 4, 4])).toBe(true);
-    expect(islandsMatchSizes(classroom, [4, 4, 4, 4, 4, 4])).toBe(false);
-    expect(islandsMatchSizes(classroom, partitionByCount(25, 7))).toBe(false);
+  it('reports its island sizes in island order', () => {
+    expect(islandCapacityList(createGroupClassroom({ sizes: [5, 4, 4, 4, 4, 4] }))).toEqual([
+      5, 4, 4, 4, 4, 4,
+    ]);
+    // A custom arrangement is reported as built, not normalised.
+    expect(islandCapacityList(createGroupClassroom({ sizes: [4, 4, 5, 4, 4, 4] }))).toEqual([
+      4, 4, 5, 4, 4, 4,
+    ]);
+    expect(islandCapacityList(createClassroom({ rows: 3, cols: 3 }))).toEqual([]);
+  });
+
+  it('compares size lists regardless of order', () => {
+    expect(sameSizeMultiset([5, 4, 4], [4, 5, 4])).toBe(true);
+    expect(sameSizeMultiset([5, 4, 4], [4, 4, 4])).toBe(false);
+    expect(sameSizeMultiset([5, 4], [5, 4, 4])).toBe(false);
+    expect(sameSizeMultiset(partitionByCount(25, 6), [4, 4, 5, 4, 4, 4])).toBe(true);
   });
 });
 

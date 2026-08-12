@@ -70,6 +70,59 @@ export function partitionByCount(total: number, groupCount: number): number[] {
   return sizes;
 }
 
+/**
+ * Puts the larger groups in the islands the teacher picked.
+ *
+ * When a class does not divide evenly some groups end up one member bigger —
+ * 25 into 6 is 5·4·4·4·4·4 — and by default the extra seat lands in the first
+ * island. That is rarely where a teacher wants it: the roomier group may need
+ * to be at the back, away from the door, or beside the teacher's usual path.
+ *
+ * `bigSlots` holds 0-based island positions. Any that cannot be honoured —
+ * because fewer were chosen than there are larger groups — are filled from the
+ * front, so the result is always a valid arrangement of the same sizes.
+ */
+export function arrangeSizes(
+  sizes: readonly number[],
+  bigSlots: readonly number[],
+): number[] {
+  if (sizes.length === 0) return [];
+
+  const largest = Math.max(...sizes);
+  const smallest = Math.min(...sizes);
+  if (largest === smallest) return [...sizes];
+
+  const largeCount = sizes.filter((size) => size === largest).length;
+  const out = new Array<number>(sizes.length).fill(smallest);
+
+  const chosen: number[] = [];
+  for (const slot of bigSlots) {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= sizes.length) continue;
+    if (chosen.includes(slot)) continue;
+    chosen.push(slot);
+    if (chosen.length === largeCount) break;
+  }
+  // Not enough picked: top up from the front, skipping what is already chosen.
+  for (let slot = 0; chosen.length < largeCount && slot < sizes.length; slot += 1) {
+    if (!chosen.includes(slot)) chosen.push(slot);
+  }
+
+  for (const slot of chosen) out[slot] = largest;
+  return out;
+}
+
+/** True when a partition holds more than one distinct group size. */
+export function hasUnevenSizes(sizes: readonly number[]): boolean {
+  return sizes.length > 0 && Math.max(...sizes) !== Math.min(...sizes);
+}
+
+/** How many groups carry the extra member. */
+export function largerGroupCount(sizes: readonly number[]): number {
+  if (!hasUnevenSizes(sizes)) return 0;
+  const largest = Math.max(...sizes);
+  return sizes.filter((size) => size === largest).length;
+}
+
 function planFor(total: number, groupCount: number, target: number, note: string): SizePlan {
   const sizes = partitionByCount(total, groupCount);
   const max = Math.max(...sizes);

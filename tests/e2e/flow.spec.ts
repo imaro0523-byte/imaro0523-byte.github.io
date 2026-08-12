@@ -170,6 +170,52 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     expect(new Set(eightGroups).size).toBe(8);
   });
 
+  test('인원이 많은 모둠의 자리를 고를 수 있고, 자리 만들기가 그것을 존중한다', async ({ page }) => {
+    await loadSample(page);
+    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+
+    // 25 into 6 leaves one group of five, and by default it is 1모둠.
+    await expect(page.getByRole('button', { name: '1모둠 5명' })).toBeVisible();
+
+    // Move the five-person island to 5모둠 instead.
+    await page.getByRole('button', { name: '5모둠 4명' }).click();
+    await expect(page.getByRole('button', { name: '5모둠 5명' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '1모둠 4명' })).toBeVisible();
+    await expect(page.getByText(/6모둠 — 4, 4, 4, 4, 5, 4명/)).toBeVisible();
+
+    await page.getByRole('button', { name: '이 모양으로 교실 만들기' }).click();
+
+    const islandSizes = async () => {
+      const labels = await page.locator('.seat-card').allInnerTexts();
+      const counts = new Map<string, number>();
+      for (const text of labels) {
+        const group = /(\d+)모둠/.exec(text)?.[1];
+        if (group) counts.set(group, (counts.get(group) ?? 0) + 1);
+      }
+      return counts;
+    };
+    expect((await islandSizes()).get('5')).toBe(5);
+    expect((await islandSizes()).get('1')).toBe(4);
+
+    // Generating a group seating must keep the arrangement rather than
+    // rebuilding it back to «biggest group first».
+    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
+    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
+    await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
+
+    const sizeOfGroup = async (index: string) => {
+      const card = await page
+        .locator('.group-card')
+        .filter({ hasText: `${index}모둠` })
+        .first()
+        .innerText();
+      return Number(/(\d+)명/.exec(card)?.[1] ?? 0);
+    };
+    expect(await sizeOfGroup('5')).toBe(5);
+    expect(await sizeOfGroup('1')).toBe(4);
+  });
+
   test('모둠 자리 배치는 모둠끼리 모여 앉고 다른 모둠과 떨어진다', async ({ page }) => {
     await loadSample(page);
 

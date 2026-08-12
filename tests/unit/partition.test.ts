@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   alternativesForSize,
+  arrangeSizes,
+  hasUnevenSizes,
+  largerGroupCount,
   PartitionError,
   partitionByCount,
   planPairs,
@@ -95,6 +98,57 @@ describe('alternativesForSize', () => {
   it('handles a single student', () => {
     const plans = alternativesForSize(1, { target: 1, min: 1, max: 2 });
     expect(plans[0]?.sizes).toEqual([1]);
+  });
+});
+
+describe('arrangeSizes', () => {
+  const base = partitionByCount(25, 6); // [5,4,4,4,4,4]
+
+  it('puts the larger group where the teacher asked', () => {
+    expect(arrangeSizes(base, [3])).toEqual([4, 4, 4, 5, 4, 4]);
+    expect(arrangeSizes(base, [5])).toEqual([4, 4, 4, 4, 4, 5]);
+  });
+
+  it('keeps the same sizes, only moved', () => {
+    const moved = arrangeSizes(base, [2]);
+    expect([...moved].sort((a, b) => b - a)).toEqual([...base].sort((a, b) => b - a));
+    expect(moved.reduce((a, b) => a + b, 0)).toBe(25);
+  });
+
+  it('falls back to the front when nothing is chosen', () => {
+    expect(arrangeSizes(base, [])).toEqual(base);
+  });
+
+  it('places several larger groups when several are needed', () => {
+    const two = partitionByCount(26, 6); // [5,5,4,4,4,4]
+    expect(arrangeSizes(two, [4, 5])).toEqual([4, 4, 4, 4, 5, 5]);
+  });
+
+  it('tops up from the front when too few slots are chosen', () => {
+    const two = partitionByCount(26, 6);
+    // Only one slot picked but two groups are larger.
+    expect(arrangeSizes(two, [5])).toEqual([5, 4, 4, 4, 4, 5]);
+  });
+
+  it('ignores slots that do not exist and duplicates', () => {
+    expect(arrangeSizes(base, [99, -1, 2, 2])).toEqual([4, 4, 5, 4, 4, 4]);
+  });
+
+  it('leaves an even split untouched', () => {
+    const even = partitionByCount(24, 6);
+    expect(arrangeSizes(even, [4])).toEqual(even);
+    expect(hasUnevenSizes(even)).toBe(false);
+    expect(largerGroupCount(even)).toBe(0);
+  });
+
+  it('reports how many groups carry the extra member', () => {
+    expect(hasUnevenSizes(base)).toBe(true);
+    expect(largerGroupCount(base)).toBe(1);
+    expect(largerGroupCount(partitionByCount(26, 6))).toBe(2);
+  });
+
+  it('handles an empty list', () => {
+    expect(arrangeSizes([], [0])).toEqual([]);
   });
 });
 

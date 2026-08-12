@@ -235,6 +235,33 @@ export function hasGroupIslands(classroom: Classroom): boolean {
   return classroom.seats.some((seat) => seat.kind === 'seat' && seat.groupSlot !== undefined);
 }
 
+/**
+ * Island capacities as a list, in island order.
+ *
+ * Lets the rest of the app treat an existing island room as the authority on
+ * group sizes, so an arrangement a teacher set up by hand is not silently
+ * rebuilt from scratch.
+ */
+export function islandCapacityList(classroom: Classroom): number[] {
+  const capacities = islandCapacities(classroom);
+  if (capacities.size === 0) return [];
+  const out: number[] = [];
+  for (let index = 1; index <= capacities.size; index += 1) {
+    const size = capacities.get(index);
+    if (size === undefined) return [];
+    out.push(size);
+  }
+  return out;
+}
+
+/** True when two size lists hold the same sizes, in any order. */
+export function sameSizeMultiset(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort((x, y) => x - y);
+  const right = [...b].sort((x, y) => x - y);
+  return left.every((value, index) => value === right[index]);
+}
+
 /** How many seats each island holds, by group number. */
 export function islandCapacities(classroom: Classroom): Map<number, number> {
   const out = new Map<number, number>();
@@ -245,14 +272,3 @@ export function islandCapacities(classroom: Classroom): Map<number, number> {
   return out;
 }
 
-/**
- * Whether an island layout still matches a set of group sizes.
- *
- * Used to decide when the room needs rebuilding — changing from 6 groups to 7
- * invalidates the geometry.
- */
-export function islandsMatchSizes(classroom: Classroom, sizes: readonly number[]): boolean {
-  const capacities = islandCapacities(classroom);
-  if (capacities.size !== sizes.length) return false;
-  return sizes.every((size, index) => capacities.get(index + 1) === size);
-}

@@ -17,7 +17,11 @@ import {
   type OddStudentStrategy,
   type SizePlan,
 } from '@/core/solver/partition';
-import { createGroupClassroom, islandsMatchSizes } from '@/core/layout/groupIslands';
+import {
+  createGroupClassroom,
+  islandCapacityList,
+  sameSizeMultiset,
+} from '@/core/layout/groupIslands';
 import { EFFORT_LABELS, type Effort, type SeatingCandidate } from '@/core/solver/seating';
 import type { GroupingCandidate } from '@/core/solver/grouping';
 import { runGrouping, runSeating } from '@/lib/solverClient';
@@ -119,7 +123,19 @@ export function GenerateScreen() {
     }
   }, [usesGroups, total, sizeMode, groupCount, targetSize, minSize, maxSize]);
 
-  const effectiveSizes = chosenPlan ?? plans[0]?.sizes ?? [];
+  const plannedSizes = chosenPlan ?? plans[0]?.sizes ?? [];
+
+  /**
+   * An island room the teacher already built wins over the default ordering.
+   *
+   * The sizes have to match as a multiset, not slot by slot, so that moving
+   * the 5-person island to a different corner on the 교실 screen is respected
+   * instead of being rebuilt back to «biggest group first».
+   */
+  const roomSizes = useMemo(() => islandCapacityList(classroom), [classroom]);
+  const roomMatchesPlan =
+    usesGroups && roomSizes.length > 0 && sameSizeMultiset(roomSizes, plannedSizes);
+  const effectiveSizes = roomMatchesPlan ? roomSizes : plannedSizes;
 
   const pairPlan = useMemo(
     () => (mode === 'pairs' && total > 0 ? planPairs(total, oddStrategy) : null),
@@ -186,16 +202,14 @@ export function GenerateScreen() {
         // the teacher has turned that off. The islands carry the group number
         // on each seat, which is what actually keeps a group sitting together.
         let room = classroom;
-        if (mode === 'groupSeats' && autoGroupRoom && nextGrouping) {
+        if (mode === 'groupSeats' && autoGroupRoom && nextGrouping && !roomMatchesPlan) {
           const sizes = nextGrouping.groups.map((group) => group.memberIds.length);
-          if (!islandsMatchSizes(room, sizes)) {
-            room = createGroupClassroom({
-              sizes,
-              gap: groupGap,
-              windowSide: classroom.windowSide,
-            });
-            setClassroom(room);
-          }
+          room = createGroupClassroom({
+            sizes,
+            gap: groupGap,
+            windowSide: classroom.windowSide,
+          });
+          setClassroom(room);
         }
 
         // Seat ids change when the room is rebuilt, so locks from the old
