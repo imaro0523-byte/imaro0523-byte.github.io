@@ -336,7 +336,6 @@ export const useAppStore = create<AppState>()((set, get) => {
           cols,
           pairDesks,
           windowSide: state.classroom.windowSide,
-          teacherDeskAlign: state.classroom.teacherDeskAlign,
           name: state.classroom.name,
         });
         // Seat ids change, so any arrangement referring to the old ones goes.

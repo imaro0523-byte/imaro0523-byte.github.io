@@ -193,7 +193,6 @@ export function GenerateScreen() {
               sizes,
               gap: groupGap,
               windowSide: classroom.windowSide,
-              teacherDeskAlign: classroom.teacherDeskAlign,
             });
             setClassroom(room);
           }

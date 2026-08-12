@@ -7,7 +7,6 @@ import {
   fromDisplay,
   otherViewpoint,
   seatsInDisplayOrder,
-  teacherDeskPlacement,
   toDisplay,
   windowPlacement,
 } from '@/core/layout/viewpoint';
@@ -56,11 +55,10 @@ describe('viewpoint', () => {
     expect(boardPlacement('teacher')).toBe('bottom');
   });
 
-  it('mirrors the desk and window sides for the teacher', () => {
-    expect(teacherDeskPlacement('left', 'student')).toBe('left');
-    expect(teacherDeskPlacement('left', 'teacher')).toBe('right');
-    expect(teacherDeskPlacement('center', 'teacher')).toBe('center');
+  it('mirrors the window side for the teacher', () => {
+    expect(windowPlacement('left', 'student')).toBe('left');
     expect(windowPlacement('left', 'teacher')).toBe('right');
+    expect(windowPlacement('right', 'teacher')).toBe('left');
     expect(windowPlacement('none', 'teacher')).toBe('none');
   });
 

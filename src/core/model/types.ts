@@ -140,9 +140,12 @@ export interface Classroom {
   rows: number;
   cols: number;
   seats: Seat[];
-  /** Where the teacher's desk sits relative to the board, in canonical space. */
-  teacherDeskAlign: 'left' | 'center' | 'right';
-  /** Which side of the room has windows, used to auto-tag zones. */
+  /**
+   * Which side of the room has windows.
+   *
+   * Unlike a decorative marker this earns its place: it drives the
+   * window / corridor zone tags that «창가에 앉히기» rules depend on.
+   */
   windowSide: 'left' | 'right' | 'none';
 }
 
@@ -156,7 +159,7 @@ export const VIEWPOINT_LABELS: Record<Viewpoint, string> = {
 
 export const VIEWPOINT_HINTS: Record<Viewpoint, string> = {
   student: '학생이 자기 자리에 앉아 칠판을 바라본 모습입니다. 칠판이 화면 위쪽에 있습니다.',
-  teacher: '교사가 교탁에서 학생들을 바라본 모습입니다. 교탁이 화면 아래쪽에 있고 좌우가 뒤집힙니다.',
+  teacher: '교사가 교탁에서 학생들을 바라본 모습입니다. 칠판이 화면 아래쪽에 있고 좌우가 뒤집힙니다.',
 };
 
 // ---------------------------------------------------------------------------

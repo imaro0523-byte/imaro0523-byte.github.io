@@ -74,18 +74,6 @@ export function boardPlacement(viewpoint: Viewpoint): 'top' | 'bottom' {
   return viewpoint === 'student' ? 'top' : 'bottom';
 }
 
-/**
- * The teacher's desk alignment as drawn. The 180° rotation mirrors it, so a
- * desk on the canonical left appears on the right in the teacher's view.
- */
-export function teacherDeskPlacement(
-  align: Classroom['teacherDeskAlign'],
-  viewpoint: Viewpoint,
-): Classroom['teacherDeskAlign'] {
-  if (viewpoint === 'student' || align === 'center') return align;
-  return align === 'left' ? 'right' : 'left';
-}
-
 /** Which side of the drawn room the windows are on. */
 export function windowPlacement(
   side: Classroom['windowSide'],

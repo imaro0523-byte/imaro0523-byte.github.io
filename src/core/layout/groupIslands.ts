@@ -84,7 +84,6 @@ export interface GroupRoomOptions {
   gap?: number;
   islandsPerRow?: number;
   windowSide?: Classroom['windowSide'];
-  teacherDeskAlign?: Classroom['teacherDeskAlign'];
   name?: string;
 }
 
@@ -169,7 +168,6 @@ export function createGroupClassroom(options: GroupRoomOptions): Classroom {
     rows,
     cols,
     seats: [...grid.values()].sort((a, b) => a.row - b.row || a.col - b.col),
-    teacherDeskAlign: options.teacherDeskAlign ?? 'center',
     windowSide,
   };
 }

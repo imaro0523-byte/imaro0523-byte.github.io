@@ -133,7 +133,6 @@ export function ClassroomScreen() {
                         pairDesks: template.pairDesks,
                         aisleCols: template.aisleCols,
                         windowSide: classroom.windowSide,
-                        teacherDeskAlign: classroom.teacherDeskAlign,
                       }),
                     )
                   }
@@ -200,7 +199,6 @@ export function ClassroomScreen() {
                       cols: classroom.cols,
                       pairDesks: hasPairDesks,
                       windowSide: e.target.value as typeof classroom.windowSide,
-                      teacherDeskAlign: classroom.teacherDeskAlign,
                     }),
                   )
                 }
@@ -209,25 +207,9 @@ export function ClassroomScreen() {
                 <option value="right">오른쪽</option>
                 <option value="none">표시 안 함</option>
               </select>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="desk">교탁 위치</label>
-              <select
-                id="desk"
-                className="input"
-                value={classroom.teacherDeskAlign}
-                onChange={(e) =>
-                  setClassroom({
-                    ...classroom,
-                    teacherDeskAlign: e.target.value as typeof classroom.teacherDeskAlign,
-                  })
-                }
-              >
-                <option value="left">왼쪽</option>
-                <option value="center">가운데</option>
-                <option value="right">오른쪽</option>
-              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                창가·복도 쪽 자리를 희망 조건으로 쓸 때 기준이 됩니다.
+              </p>
             </div>
           </div>
         </div>

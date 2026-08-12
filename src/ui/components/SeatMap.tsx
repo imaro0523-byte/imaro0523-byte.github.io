@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react';
 
-import { boardPlacement, seatsInDisplayOrder, teacherDeskPlacement, windowPlacement } from '@/core/layout/viewpoint';
+import { boardPlacement, seatsInDisplayOrder, windowPlacement } from '@/core/layout/viewpoint';
 import type { Classroom, Grouping, SeatAssignment, Seat, Student, Viewpoint } from '@/core/model/types';
 import { VIEWPOINT_HINTS, VIEWPOINT_LABELS } from '@/core/model/types';
 import { LockIcon } from './Icons';
@@ -80,23 +80,14 @@ export function SeatMap({
   const rows = seatsInDisplayOrder(classroom, viewpoint);
   const locked = new Set(lockedSeatIds);
   const board = boardPlacement(viewpoint);
-  const deskAlign = teacherDeskPlacement(classroom.teacherDeskAlign, viewpoint);
   const windows = windowPlacement(classroom.windowSide, viewpoint);
 
+  // One bar marking the front of the room. It spans the full width because
+  // that is what a blackboard does, and because the exact spot a teacher's
+  // desk stands in has no bearing on a seating plan.
   const boardBar = (
-    <div
-      className="flex items-center gap-3 print-area"
-      style={{
-        justifyContent:
-          deskAlign === 'left' ? 'flex-start' : deskAlign === 'right' ? 'flex-end' : 'center',
-      }}
-    >
-      <div className="flex-1 rounded-md border-2 border-dashed border-slate-400 px-3 py-1.5 text-center text-xs font-semibold tracking-widest text-slate-600 dark:border-slate-500 dark:text-slate-300">
-        칠 판
-      </div>
-      <div className="shrink-0 rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white dark:bg-slate-600">
-        교탁
-      </div>
+    <div className="print-area rounded-md border-2 border-dashed border-slate-400 px-3 py-1.5 text-center text-xs font-semibold tracking-widest text-slate-600 dark:border-slate-500 dark:text-slate-300">
+      칠판 · 교탁 쪽 {board === 'top' ? '(화면 위쪽이 교실 앞)' : '(화면 아래쪽이 교실 앞)'}
     </div>
   );
 

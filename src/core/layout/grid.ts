@@ -20,7 +20,6 @@ export interface GridOptions {
   /** Row indices (0-based) that become aisles rather than seats. */
   aisleRows?: number[];
   windowSide?: Classroom['windowSide'];
-  teacherDeskAlign?: Classroom['teacherDeskAlign'];
   /** Pair horizontally adjacent seats into two-person desks. */
   pairDesks?: boolean;
 }
@@ -89,7 +88,6 @@ export function createClassroom(options: GridOptions): Classroom {
     rows,
     cols,
     seats,
-    teacherDeskAlign: options.teacherDeskAlign ?? 'center',
     windowSide,
   };
 
