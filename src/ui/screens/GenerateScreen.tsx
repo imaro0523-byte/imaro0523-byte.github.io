@@ -17,6 +17,7 @@ import {
   type OddStudentStrategy,
   type SizePlan,
 } from '@/core/solver/partition';
+import { createGroupClassroom, islandsMatchSizes } from '@/core/layout/groupIslands';
 import { EFFORT_LABELS, type Effort, type SeatingCandidate } from '@/core/solver/seating';
 import type { GroupingCandidate } from '@/core/solver/grouping';
 import { runGrouping, runSeating } from '@/lib/solverClient';
@@ -51,12 +52,24 @@ export function GenerateScreen() {
   const setAssignment = useAppStore((s) => s.setAssignment);
   const setGrouping = useAppStore((s) => s.setGrouping);
   const setStep = useAppStore((s) => s.setStep);
+  const setClassroom = useAppStore((s) => s.setClassroom);
 
   // Kept in the store so stepping back to the roster does not discard them.
   const options = useAppStore((s) => s.generate);
   const setOptions = useAppStore((s) => s.setGenerateOptions);
-  const { mode, sizeMode, groupCount, targetSize, minSize, maxSize, chosenPlan, oddStrategy, keepLocked } =
-    options;
+  const {
+    mode,
+    sizeMode,
+    groupCount,
+    targetSize,
+    minSize,
+    maxSize,
+    chosenPlan,
+    oddStrategy,
+    keepLocked,
+    autoGroupRoom,
+    groupGap,
+  } = options;
 
   const setMode = (value: Mode) => setOptions({ mode: value });
   const setSizeMode = (value: SizeMode) => setOptions({ sizeMode: value, chosenPlan: null });
@@ -115,9 +128,13 @@ export function GenerateScreen() {
 
   // --- diagnosis ----------------------------------------------------------
   const diagnoses = useMemo(() => {
-    const list = mode === 'groups'
-      ? []
-      : diagnoseSeating({ classroom, students, constraints });
+    const rebuildsRoom = mode === 'groupSeats' && autoGroupRoom;
+    let list = mode === 'groups' ? [] : diagnoseSeating({ classroom, students, constraints });
+    // The room is about to be rebuilt to fit the groups exactly, so a shortage
+    // in the current layout is not something the teacher has to fix.
+    if (rebuildsRoom) {
+      list = list.filter((d) => d.code !== 'notEnoughSeats' && d.code !== 'fixedSeatUnusable');
+    }
     if (usesGroups && effectiveSizes.length > 0) {
       list.push(
         ...diagnoseGrouping({
@@ -129,7 +146,7 @@ export function GenerateScreen() {
       );
     }
     return list;
-  }, [mode, usesGroups, classroom, students, constraints, effectiveSizes]);
+  }, [mode, usesGroups, autoGroupRoom, classroom, students, constraints, effectiveSizes]);
 
   const blocking = diagnoses.filter((d) => d.level === 'blocking');
 
@@ -165,14 +182,34 @@ export function GenerateScreen() {
       }
 
       if (mode !== 'groups') {
-        const keepSeats = keepLocked
-          ? Object.fromEntries(
-              Object.entries(assignment).filter(([seatId]) => lockedSeatIds.includes(seatId)),
-            )
-          : {};
+        // For a group seating, rebuild the room as one island per group unless
+        // the teacher has turned that off. The islands carry the group number
+        // on each seat, which is what actually keeps a group sitting together.
+        let room = classroom;
+        if (mode === 'groupSeats' && autoGroupRoom && nextGrouping) {
+          const sizes = nextGrouping.groups.map((group) => group.memberIds.length);
+          if (!islandsMatchSizes(room, sizes)) {
+            room = createGroupClassroom({
+              sizes,
+              gap: groupGap,
+              windowSide: classroom.windowSide,
+              teacherDeskAlign: classroom.teacherDeskAlign,
+            });
+            setClassroom(room);
+          }
+        }
+
+        // Seat ids change when the room is rebuilt, so locks from the old
+        // layout no longer refer to anything.
+        const keepSeats =
+          keepLocked && room === classroom
+            ? Object.fromEntries(
+                Object.entries(assignment).filter(([seatId]) => lockedSeatIds.includes(seatId)),
+              )
+            : {};
 
         const result = await runSeating({
-          classroom,
+          classroom: room,
           students,
           constraints,
           seed,
@@ -316,6 +353,50 @@ export function GenerateScreen() {
             <p className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
               {planError}
             </p>
+          )}
+
+          {mode === 'groupSeats' && (
+            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={autoGroupRoom}
+                  onChange={(e) => setOptions({ autoGroupRoom: e.target.checked })}
+                />
+                <span>
+                  <span className="font-medium">모둠 모양으로 교실 자동 만들기</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    모둠마다 책상 섬을 만들고 사이에 통로를 둡니다. 같은 모둠은 마주 보고 모여 앉고,
+                    다른 모둠과는 떨어집니다. <strong>교실 설정에서 만든 자리 배치는 새로 만들어집니다.</strong>
+                  </span>
+                </span>
+              </label>
+
+              {autoGroupRoom && (
+                <div className="flex flex-wrap items-center gap-2 pl-6">
+                  <span className="text-xs text-slate-600 dark:text-slate-400">모둠 사이 간격</span>
+                  {[
+                    { value: 1, label: '보통 (한 칸)' },
+                    { value: 2, label: '넓게 (두 칸)' },
+                    { value: 3, label: '아주 넓게 (세 칸)' },
+                  ].map((choice) => (
+                    <button
+                      key={choice.value}
+                      type="button"
+                      onClick={() => setOptions({ groupGap: choice.value })}
+                      className={`rounded-lg border px-2.5 py-1 text-xs ${
+                        groupGap === choice.value
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                          : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {plans.length > 0 && (

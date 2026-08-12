@@ -60,6 +60,14 @@ export interface GenerateOptions {
   chosenPlan: number[] | null;
   oddStrategy: 'alone' | 'trio' | 'teacherPicks';
   keepLocked: boolean;
+  /**
+   * Rebuild the classroom as one island of desks per group before seating.
+   * On by default: choosing «모둠 + 자리 배치» and getting groups scattered
+   * across a plain grid is never what a teacher meant.
+   */
+  autoGroupRoom: boolean;
+  /** Empty seats between islands — how far apart the groups sit. */
+  groupGap: number;
 }
 
 const DEFAULT_GENERATE: GenerateOptions = {
@@ -72,6 +80,8 @@ const DEFAULT_GENERATE: GenerateOptions = {
   chosenPlan: null,
   oddStrategy: 'alone',
   keepLocked: true,
+  autoGroupRoom: true,
+  groupGap: 1,
 };
 
 /** The slice of state that undo/redo restores. */

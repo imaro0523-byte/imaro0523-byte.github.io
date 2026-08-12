@@ -92,6 +92,74 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     expect(net.external).toEqual([]);
   });
 
+  test('모둠 자리 배치는 모둠끼리 모여 앉고 다른 모둠과 떨어진다', async ({ page }) => {
+    await loadSample(page);
+
+    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
+    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
+    // The island layout is offered by default rather than hidden in settings.
+    await expect(page.getByText('모둠 모양으로 교실 자동 만들기')).toBeVisible();
+    await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
+
+    // Read the drawn map: which group number sits at which grid position.
+    const layout = await page.evaluate(() => {
+      // The first .print-area is the seat map; the second is the group list.
+      const map = document.querySelectorAll('.print-area')[0];
+      const rows = map ? [...map.querySelectorAll('.grid')] : [];
+      return rows.map((row) =>
+        [...row.children].map((cell) => {
+          const text = (cell as HTMLElement).innerText ?? '';
+          const match = /(\d+)모둠/.exec(text);
+          return match ? Number(match[1]) : null;
+        }),
+      );
+    });
+
+    const cells: Array<{ row: number; col: number; group: number }> = [];
+    layout.forEach((row, r) =>
+      row.forEach((group, c) => {
+        if (group !== null) cells.push({ row: r, col: c, group });
+      }),
+    );
+
+    expect(cells).toHaveLength(25);
+    expect(new Set(cells.map((cell) => cell.group)).size).toBe(6);
+
+    const distance = (a: (typeof cells)[number], b: (typeof cells)[number]) =>
+      Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col));
+
+    // Each group forms its own block: no member of another group sits inside a
+    // group's bounding box. This is the property that was missing before —
+    // groups used to be interleaved across the whole room.
+    for (const index of new Set(cells.map((cell) => cell.group))) {
+      const mine = cells.filter((cell) => cell.group === index);
+      const top = Math.min(...mine.map((c) => c.row));
+      const bottom = Math.max(...mine.map((c) => c.row));
+      const left = Math.min(...mine.map((c) => c.col));
+      const right = Math.max(...mine.map((c) => c.col));
+
+      const intruders = cells.filter(
+        (cell) =>
+          cell.group !== index &&
+          cell.row >= top &&
+          cell.row <= bottom &&
+          cell.col >= left &&
+          cell.col <= right,
+      );
+      expect(intruders).toEqual([]);
+    }
+
+    // And the person sitting closest to you is always one of your own group.
+    for (const cell of cells) {
+      const mates = cells.filter((o) => o.group === cell.group && o !== cell);
+      const others = cells.filter((o) => o.group !== cell.group);
+      const nearestMate = Math.min(...mates.map((o) => distance(cell, o)));
+      const nearestOther = Math.min(...others.map((o) => distance(cell, o)));
+      expect(nearestMate).toBeLessThan(nearestOther);
+    }
+  });
+
   test('교사 관점과 학생 관점을 바꾸면 배치가 뒤집힌다', async ({ page }) => {
     await loadSample(page);
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();

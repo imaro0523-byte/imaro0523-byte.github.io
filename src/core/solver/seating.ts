@@ -101,6 +101,16 @@ interface Prepared {
   movableIds: string[];
   /** seatId → studentId for everything pinned in place. */
   pinned: SeatAssignment;
+  /**
+   * Sets of seats a student may be swapped between.
+   *
+   * In an ordinary room this is one pool holding every free seat. In a room of
+   * group islands there is one pool per island, which is what keeps a group
+   * physically together: a swap can never move somebody out of their island.
+   */
+  swapPools: string[][];
+  /** groupIndex → that island's free seats, when the room has islands. */
+  islandSeats: Map<number, string[]> | null;
 }
 
 function prepare(request: SeatingRequest): Prepared {
@@ -134,12 +144,80 @@ function prepare(request: SeatingRequest): Prepared {
   const pinnedStudents = new Set(Object.values(pinned));
   const pinnedSeats = new Set(Object.keys(pinned));
 
+  const freeSeats = usable.filter((s) => !pinnedSeats.has(s.id));
+  const freeSeatIds = freeSeats.map((s) => s.id);
+
+  // Island rooms only make sense alongside a grouping; without one there is
+  // nothing to say which island a student belongs to.
+  const usesIslands =
+    request.grouping !== undefined && usable.some((seat) => seat.groupSlot !== undefined);
+
+  let islandSeats: Map<number, string[]> | null = null;
+  let swapPools: string[][];
+
+  if (usesIslands) {
+    islandSeats = new Map();
+    const loose: string[] = [];
+    for (const seat of freeSeats) {
+      if (seat.groupSlot === undefined) {
+        loose.push(seat.id);
+        continue;
+      }
+      const list = islandSeats.get(seat.groupSlot) ?? [];
+      list.push(seat.id);
+      islandSeats.set(seat.groupSlot, list);
+    }
+    swapPools = [...islandSeats.values()];
+    if (loose.length > 1) swapPools.push(loose);
+  } else {
+    swapPools = [freeSeatIds];
+  }
+
   return {
     ctx,
-    freeSeatIds: usable.filter((s) => !pinnedSeats.has(s.id)).map((s) => s.id),
+    freeSeatIds,
     movableIds: placeable.filter((s) => !pinnedStudents.has(s.id)).map((s) => s.id),
     pinned,
+    swapPools: swapPools.filter((pool) => pool.length > 1),
+    islandSeats,
   };
+}
+
+/**
+ * Seats each group inside its own island, then anybody left over in whatever
+ * remains. This is what makes a group sit together; the search that follows
+ * only rearranges people within an island.
+ */
+function islandAssignment(
+  prepared: Prepared,
+  grouping: Grouping,
+  rng: Rng,
+): SeatAssignment {
+  const assignment: SeatAssignment = { ...prepared.pinned };
+  const movable = new Set(prepared.movableIds);
+  const seated = new Set<string>();
+
+  for (const group of grouping.groups) {
+    const seats = prepared.islandSeats?.get(group.index) ?? [];
+    const members = rng.shuffle(group.memberIds.filter((id) => movable.has(id)));
+    members.forEach((studentId, index) => {
+      const seatId = seats[index];
+      if (seatId === undefined) return;
+      assignment[seatId] = studentId;
+      seated.add(studentId);
+    });
+  }
+
+  // Students with no island — more members than the island holds, or nobody's
+  // group at all — take any seat that is still free.
+  const leftovers = rng.shuffle(prepared.movableIds.filter((id) => !seated.has(id)));
+  const spare = prepared.freeSeatIds.filter((seatId) => assignment[seatId] === undefined);
+  leftovers.forEach((studentId, index) => {
+    const seatId = spare[index];
+    if (seatId !== undefined) assignment[seatId] = studentId;
+  });
+
+  return assignment;
 }
 
 function initialAssignment(
@@ -226,6 +304,9 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
     if (evaluation.penalty < bestPenalty) bestPenalty = evaluation.penalty;
   };
 
+  const grouping = request.grouping;
+  const useIslands = prepared.islandSeats !== null && grouping !== undefined;
+
   // Nothing to shuffle: return the single arrangement that exists.
   if (prepared.freeSeatIds.length === 0 || prepared.movableIds.length === 0) {
     const assignment = { ...prepared.pinned };
@@ -240,20 +321,27 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
       // so that "출석번호순" still gets refined rather than being the only answer.
       const strategy = restart === 0 ? request.strategy : 'random';
 
-      let current = initialAssignment(prepared, request.students, rng, strategy);
+      let current = useIslands
+        ? islandAssignment(prepared, grouping, rng)
+        : initialAssignment(prepared, request.students, rng, strategy);
       const startEvaluation = evaluateSeating(current, constraints, prepared.ctx);
       let currentScore = startEvaluation.penalty;
       consider(current, startEvaluation, restartSeed);
 
-      const seatPool = prepared.freeSeatIds;
+      const pools = prepared.swapPools;
+      if (pools.length === 0) continue;
+
       for (let step = 0; step < budget.steps; step += 1) {
         iterations += 1;
         // Checking the clock every 128 steps keeps the timing overhead low
         // while still bounding the worst case tightly.
         if ((step & 127) === 0 && now() - started > budget.timeMs) break;
 
-        const seatA = seatPool[rng.int(seatPool.length)];
-        const seatB = seatPool[rng.int(seatPool.length)];
+        // Both seats come from the same pool, so in an island room a student
+        // can move around inside their group but never out of it.
+        const pool = pools[rng.int(pools.length)] as string[];
+        const seatA = pool[rng.int(pool.length)];
+        const seatB = pool[rng.int(pool.length)];
         if (seatA === undefined || seatB === undefined || seatA === seatB) continue;
 
         applySwap(current, seatA, seatB);
