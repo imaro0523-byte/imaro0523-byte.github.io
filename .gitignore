@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+*.local
+.DS_Store
+Thumbs.db
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# --------------------------------------------------------------------------
+# Never commit real rosters. Student data must not enter version control.
+# Test fixtures are generated at run time from synthetic names instead.
+# --------------------------------------------------------------------------
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+!tests/**/*.generated.xlsx
+/private/

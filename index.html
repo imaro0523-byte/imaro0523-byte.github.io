@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <!--CSP-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="나이스 명렬표로 교실 자리 배치와 모둠 편성을 만드는 도구. 모든 처리가 브라우저 안에서만 이루어집니다."
+    />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <title>자리배치 도우미 — 브라우저 안에서만 처리</title>
+  </head>
+  <body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div id="root" class="h-full"></div>
+    <noscript>
+      이 도구는 모든 계산을 브라우저 안에서 처리하기 때문에 자바스크립트가 필요합니다.
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
