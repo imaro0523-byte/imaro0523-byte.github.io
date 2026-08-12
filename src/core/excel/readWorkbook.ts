@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import type { RawCell, SheetGrid } from './grid';
 
 export class WorkbookReadError extends Error {
-  readonly reason: 'encrypted' | 'corrupt' | 'empty' | 'unknown';
+  readonly reason: 'encrypted' | 'corrupt' | 'empty' | 'tooLarge' | 'tooManyRows' | 'unknown';
 
   constructor(reason: WorkbookReadError['reason'], message: string) {
     super(message);
@@ -42,25 +42,65 @@ function sheetToGrid(sheet: XLSX.WorkSheet, name: string, hidden: boolean): Shee
     blankrows: true,
     defval: null,
   });
+  if (rows.length > LIMITS.rowsPerSheet) {
+    throw new WorkbookReadError(
+      'tooManyRows',
+      `«${name}» 시트에 ${rows.length.toLocaleString('ko-KR')}행이 있습니다. ` +
+        `명렬표로 보기에는 너무 커서 열지 않았습니다 (${LIMITS.rowsPerSheet.toLocaleString('ko-KR')}행까지).`,
+    );
+  }
+  // Wide sheets are truncated rather than refused: the roster columns are on
+  // the left, so cutting the far right loses nothing a teacher needs.
   const cells: RawCell[][] = rows.map((row) =>
-    Array.isArray(row) ? row.map(toRawCell) : [],
+    Array.isArray(row) ? row.slice(0, LIMITS.columnsPerSheet).map(toRawCell) : [],
   );
   return { name, hidden, cells };
 }
 
-/**
- * Reads every sheet of a workbook, including hidden ones — a hidden sheet still
- * holds a usable roster, and the UI lets the teacher pick.
- */
 /** `PK\x03\x04` — every .xlsx is a zip archive. */
 function looksLikeZip(buffer: ArrayBuffer): boolean {
   const head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
   return head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04;
 }
 
+/**
+ * Ceilings on what will be parsed.
+ *
+ * A class roster is a few hundred cells. These limits are far above anything a
+ * real one reaches, and they exist so that a wrong file — a compressed archive
+ * that expands enormously, a database export, a spreadsheet with a million
+ * blank rows — produces an explanation instead of a frozen tab. The risk is to
+ * the teacher's own browser, not to their data, but a tool that hangs with no
+ * message is still a broken tool.
+ */
+export const LIMITS = {
+  /** 20 MB. A NEIS roster is around 10 KB. */
+  fileBytes: 20 * 1024 * 1024,
+  rowsPerSheet: 20000,
+  columnsPerSheet: 512,
+  sheets: 100,
+} as const;
+
+function describeBytes(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${Math.round(bytes / (1024 * 1024))}MB`
+    : `${Math.round(bytes / 1024)}KB`;
+}
+
+/**
+ * Reads every sheet of a workbook, including hidden ones — a hidden sheet still
+ * holds a usable roster, and the UI lets the teacher pick.
+ */
 export function readWorkbookGrids(buffer: ArrayBuffer): SheetGrid[] {
   if (buffer.byteLength === 0) {
     throw new WorkbookReadError('empty', '내용이 없는 파일입니다.');
+  }
+  if (buffer.byteLength > LIMITS.fileBytes) {
+    throw new WorkbookReadError(
+      'tooLarge',
+      `파일이 너무 큽니다 (${describeBytes(buffer.byteLength)}). ` +
+        `명렬표는 보통 1MB를 넘지 않습니다. ${describeBytes(LIMITS.fileBytes)} 이하 파일만 열 수 있습니다.`,
+    );
   }
 
   let workbook: XLSX.WorkBook;
@@ -94,6 +134,12 @@ export function readWorkbookGrids(buffer: ArrayBuffer): SheetGrid[] {
   const names = workbook.SheetNames ?? [];
   if (names.length === 0) {
     throw new WorkbookReadError('empty', '시트가 없는 파일입니다.');
+  }
+  if (names.length > LIMITS.sheets) {
+    throw new WorkbookReadError(
+      'tooManyRows',
+      `시트가 ${names.length}개나 있습니다. 명렬표 파일이 맞는지 확인해 주세요.`,
+    );
   }
 
   const hiddenByName = new Map<string, boolean>();

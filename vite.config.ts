@@ -6,33 +6,59 @@ import path from 'node:path';
 /**
  * Content-Security-Policy.
  *
- * `connect-src 'self'` is the structural guarantee behind this app's privacy promise:
- * the browser itself refuses every fetch / XHR / WebSocket / sendBeacon to any other
- * origin, no matter what application code or a third-party dependency tries to do.
- * There is no backend, so 'self' can only ever reach the static build assets.
+ * An earlier version used `default-src 'self'` with `connect-src 'self'` and
+ * called that the strongest possible guarantee. An audit proved otherwise: a
+ * probe that tried fifteen egress routes got eight of them delivered to the
+ * server, because "self" is a real web server with real access logs. A single
+ * line — `new Image().src = '/?d=' + names` — was enough to put a class list
+ * into the host's logs. The cross-origin half of the promise held; the
+ * same-origin half did not exist.
  *
- * Dev mode additionally allows the localhost websocket used by Vite's HMR.
+ * So the policy is now default-deny, and every directive that could carry data
+ * outward is closed rather than pointed at 'self':
+ *
+ *   connect-src 'none'   kills fetch, XHR, sendBeacon, EventSource, WebSocket
+ *   img-src data: blob:  kills image beacons and CSS url() — note: no 'self'
+ *   default-src 'none'   kills iframe, prefetch and anything not listed below
+ *   font-src 'none'      nothing here loads a font file; system fonts only
+ *
+ * `script-src 'self'` and `worker-src 'self'` have to stay: the app is made of
+ * same-origin scripts. They can fetch nothing, so they cannot carry data out.
+ *
+ * `frame-ancestors` is deliberately absent. The specification requires
+ * browsers to ignore it when it arrives in a meta tag, so listing it here
+ * would only look like protection. It lives in `public/_headers` instead, for
+ * hosts that can send real response headers.
  */
 function cspFor(mode: string): string {
-  const connect =
-    mode === 'development'
-      ? "connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*"
-      : "connect-src 'self'";
-  return [
-    "default-src 'self'",
+  const directives = [
+    "default-src 'none'",
     "base-uri 'none'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
     "form-action 'none'",
-    connect,
-    // data: / blob: are needed for locally generated PNG · PDF · XLSX downloads.
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
+    "object-src 'none'",
+    "frame-src 'none'",
+    "child-src 'none'",
+    "media-src 'none'",
+    "font-src 'none'",
+    // No 'self': same-origin images are an exfiltration channel through the
+    // host's access log. The favicon is inlined as a data: URI to compensate.
+    "img-src data: blob:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-  ].join('; ');
+  ];
+
+  if (mode === 'development') {
+    // Vite's HMR needs a websocket and refetches modules as they change.
+    directives.push(
+      "connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*",
+    );
+  } else {
+    directives.push("connect-src 'none'");
+  }
+
+  return directives.join('; ');
 }
 
 /** Injects the CSP meta tag so it is present in dev, preview and production alike. */

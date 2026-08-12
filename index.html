@@ -10,7 +10,18 @@
       name="description"
       content="나이스 명렬표로 교실 자리 배치와 모둠 편성을 만드는 도구. 모든 처리가 브라우저 안에서만 이루어집니다."
     />
-    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <!--
+      Inlined as a data: URI on purpose. `img-src` carries no 'self', because a
+      same-origin image request is a way to push data into the host's access
+      log; the favicon would otherwise be the one thing keeping that door open.
+      The file at public/icon.svg remains for the web app manifest, which the
+      browser fetches outside the page's CSP.
+    -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%231d4ed8'/%3E%3Crect x='96' y='92' width='320' height='34' rx='10' fill='%23fff' opacity='.55'/%3E%3Cg fill='%23fff'%3E%3Crect x='96' y='176' width='86' height='66' rx='14'/%3E%3Crect x='213' y='176' width='86' height='66' rx='14'/%3E%3Crect x='330' y='176' width='86' height='66' rx='14'/%3E%3Crect x='96' y='266' width='86' height='66' rx='14'/%3E%3Crect x='213' y='266' width='86' height='66' rx='14' opacity='.45'/%3E%3Crect x='330' y='266' width='86' height='66' rx='14'/%3E%3Crect x='96' y='356' width='86' height='66' rx='14' opacity='.45'/%3E%3Crect x='213' y='356' width='86' height='66' rx='14'/%3E%3Crect x='330' y='356' width='86' height='66' rx='14'/%3E%3C/g%3E%3C/svg%3E"
+    />
     <title>자리배치 도우미 — 브라우저 안에서만 처리</title>
   </head>
   <body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">

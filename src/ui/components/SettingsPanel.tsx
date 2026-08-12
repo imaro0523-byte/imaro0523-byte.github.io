@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 
 import { parseBackup } from '@/core/exportData/toJson';
 import { safeErrorMessage } from '@/lib/log';
+import { disableOffline, enableOffline, isOfflineReady, serviceWorkerSupported } from '@/lib/pwa';
 import { disposeSolver } from '@/lib/solverClient';
 import {
   deleteProject,
@@ -24,6 +25,7 @@ import { TrashIcon, WarningIcon } from './Icons';
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const state = useAppStore();
   const [projects, setProjects] = useState<StoredProject[]>([]);
+  const [offlineReady, setOfflineReady] = useState(false);
   const [confirmingWipe, setConfirmingWipe] = useState(false);
   const [report, setReport] = useState<WipeReport | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -40,6 +42,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(refresh, [state.settings.storageEnabled]);
+  useEffect(() => {
+    void isOfflineReady().then(setOfflineReady);
+  }, []);
 
   const save = async () => {
     setError(null);
@@ -84,6 +89,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     // therefore recreating — the database it has just deleted.
     state.resetSettings();
     disposeSolver();
+    setOfflineReady(false);
     setReport(result);
     setConfirmingWipe(false);
     setProjects([]);
@@ -193,6 +199,51 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         )}
       </section>
 
+      <section className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <h3 className="font-semibold">인터넷 없이 쓰기 (오프라인)</h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          켜면 앱 파일이 이 브라우저에 저장되어 인터넷이 끊겨도 열립니다.
+          <strong className="ml-1">저장되는 것은 앱 화면을 그리는 파일뿐이고 학생 정보는 들어가지 않습니다.</strong>
+          이 앱은 학생 정보를 네트워크로 주고받지 않으므로 오프라인 저장소가 가로챌 학생 데이터 자체가 없습니다.
+        </p>
+        {serviceWorkerSupported() ? (
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={offlineReady}
+              onChange={(e) => {
+                const wanted = e.target.checked;
+                setError(null);
+                // Flip immediately. A controlled checkbox whose state only
+                // moves after an await snaps back under the user's finger,
+                // because React re-renders with the old value first.
+                setOfflineReady(wanted);
+                void (async () => {
+                  if (wanted) {
+                    const result = await enableOffline();
+                    if (result.ok) {
+                      setMessage(result.message);
+                    } else {
+                      setOfflineReady(false); // undo the optimistic flip
+                      setError(result.message);
+                    }
+                  } else {
+                    await disableOffline();
+                    setMessage('오프라인 사용을 껐습니다. 저장해 둔 앱 파일을 지웠습니다.');
+                  }
+                })();
+              }}
+            />
+            <span>오프라인으로 쓸 수 있게 하기</span>
+          </label>
+        ) : (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            이 브라우저에서는 오프라인 기능을 쓸 수 없습니다.
+          </p>
+        )}
+      </section>
+
       <section className="space-y-2">
         <h3 className="font-semibold">백업 파일에서 불러오기</h3>
         <input
@@ -237,18 +288,35 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         {report && (
           <div
             className={`rounded border p-2 text-xs ${
-              report.verifiedEmpty
+              report.verification === 'verifiedEmpty'
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
                 : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
             }`}
           >
+            {/* Three distinct outcomes, because "we could not check" is a
+                different thing from "we checked and it is clean". */}
             <p className="font-semibold">
-              {report.verifiedEmpty ? '삭제 후 확인 완료 — 남은 학생 정보가 없습니다.' : '일부가 남아 있을 수 있습니다.'}
+              {report.verification === 'verifiedEmpty'
+                ? '삭제 후 확인 완료 — 남은 학생 정보가 없습니다.'
+                : report.verification === 'unverifiable'
+                  ? '삭제했지만 이 브라우저에서는 확인하지 못했습니다.'
+                  : '일부가 남아 있을 수 있습니다.'}
             </p>
             <ul className="mt-1 list-disc pl-4">
-              <li>저장소(IndexedDB): {report.indexedDbDeleted ? '삭제됨' : '삭제하지 못함'}</li>
+              <li>
+                저장소(IndexedDB):{' '}
+                {report.database === 'deleted'
+                  ? '삭제됨'
+                  : report.database === 'blocked'
+                    ? '다른 탭이 사용 중이라 삭제하지 못함'
+                    : '삭제하지 못함'}
+              </li>
               <li>브라우저 설정값: {report.localStorageKeysRemoved}개 삭제</li>
-              <li>오프라인 캐시: {report.cachesDeleted}개 삭제</li>
+              <li>
+                오프라인 캐시: {report.cachesDeleted}개 삭제
+                {report.cachesSkipped > 0 && ` (이 앱 것이 아닌 ${report.cachesSkipped}개는 건드리지 않음)`}
+              </li>
+              {report.serviceWorkerRemoved && <li>오프라인 기능: 해제됨</li>}
             </ul>
             {report.problems.map((problem, i) => (
               <p key={i} className="mt-1">
