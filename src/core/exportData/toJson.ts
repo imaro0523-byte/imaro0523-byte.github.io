@@ -64,6 +64,7 @@ export function buildBackup(input: BackupInput, options: ExportOptions): Project
       if (student.classNumber !== undefined) out.classNumber = student.classNumber;
       if (student.lastSeatId !== undefined) out.lastSeatId = student.lastSeatId;
       if (options.includeGender) out.gender = student.gender;
+      if (options.includeDivision) out.division = student.division;
       if (options.includeTags) out.tags = student.tags;
       if (options.includeTeacherMemo && student.teacherMemo) out.teacherMemo = student.teacherMemo;
       if (options.includeAccessibility && student.accessibilityNeeds) {
@@ -122,9 +123,10 @@ export function parseBackup(text: string): BackupInput {
       grade: s.grade,
       department: s.department,
       classNumber: s.classNumber,
-      // A backup exported without gender restores as 'unset' rather than
+      // A backup exported without these restores as 'unset' rather than
       // guessing, which keeps the no-inference rule intact across a round trip.
       gender: s.gender ?? 'unset',
+      division: s.division ?? 'unset',
       status: s.status ?? 'active',
       excludeNote: s.excludeNote,
       lastSeatId: s.lastSeatId,

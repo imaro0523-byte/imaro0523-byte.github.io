@@ -103,6 +103,11 @@ export interface GenderMix extends Base {
   kind: 'genderMix';
   /** `alternate` tries to interleave; `balance` only evens out the counts. */
   mode: 'alternate' | 'balance';
+  /**
+   * Which two-way attribute to interleave. Defaults to `gender` so rule sets
+   * saved before divisions existed keep working unchanged.
+   */
+  source?: 'gender' | 'division';
 }
 
 export interface TagBalance extends Base {

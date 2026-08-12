@@ -118,6 +118,10 @@ interface AppState extends Snapshot {
   removeStudent: (id: string) => void;
   setStatus: (id: string, status: StudentStatus, note?: string) => void;
   restoreStudent: (id: string) => void;
+  /** Applies a whole-class 구분1/구분2 split as one undoable step. */
+  applyDivisions: (divisions: Record<string, 'a' | 'b'>) => void;
+  swapDivisions: () => void;
+  clearDivisions: () => void;
 
   // --- classroom --------------------------------------------------------
   setClassroom: (classroom: Classroom) => void;
@@ -186,6 +190,7 @@ function emptyStudent(number: number): Student {
     number,
     name: '',
     gender: 'unset',
+    division: 'unset',
     status: 'active',
     tags: [],
     customFields: {},
@@ -326,6 +331,30 @@ export const useAppStore = create<AppState>()((set, get) => {
           assignment,
         };
       }),
+
+    applyDivisions: (divisions) =>
+      mutate((state) => ({
+        students: state.students.map((student) => {
+          const side = divisions[student.id];
+          return side === undefined ? student : { ...student, division: side };
+        }),
+      })),
+
+    swapDivisions: () =>
+      mutate((state) => ({
+        students: state.students.map((student) =>
+          student.division === 'a'
+            ? { ...student, division: 'b' as const }
+            : student.division === 'b'
+              ? { ...student, division: 'a' as const }
+              : student,
+        ),
+      })),
+
+    clearDivisions: () =>
+      mutate((state) => ({
+        students: state.students.map((student) => ({ ...student, division: 'unset' as const })),
+      })),
 
     setClassroom: (classroom) => mutate(() => ({ classroom })),
 

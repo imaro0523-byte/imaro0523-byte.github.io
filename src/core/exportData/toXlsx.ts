@@ -16,7 +16,7 @@ import type {
   SeatAssignment,
   Student,
 } from '../model/types';
-import { GENDER_LABELS, SCHEMA_VERSION, STATUS_LABELS } from '../model/types';
+import { DIVISION_LABELS, GENDER_LABELS, SCHEMA_VERSION, STATUS_LABELS } from '../model/types';
 import { normalizeHeader, parseNumberLike } from '../model/normalize';
 import type { Constraint } from '../constraints/kinds';
 import { CONSTRAINT_LABELS, SEVERITY_LABELS } from '../constraints/kinds';
@@ -99,6 +99,7 @@ export function buildWorkbook(input: WorkbookInput, options: ExportOptions): XLS
   // --- 학생명단 ----------------------------------------------------------
   const rosterHeader: Row = ['번호', '이름', '상태'];
   if (options.includeGender) rosterHeader.push('성별');
+  if (options.includeDivision) rosterHeader.push('구분');
   if (options.includeTags) rosterHeader.push('태그');
   if (options.includeExcludeReason) rosterHeader.push('제외 사유');
   if (options.includeTeacherMemo) rosterHeader.push('교사 메모');
@@ -116,6 +117,7 @@ export function buildWorkbook(input: WorkbookInput, options: ExportOptions): XLS
       STATUS_LABELS[student.status],
     ];
     if (options.includeGender) line.push(GENDER_LABELS[student.gender]);
+    if (options.includeDivision) line.push(DIVISION_LABELS[student.division]);
     if (options.includeTags) line.push(student.tags.join(', '));
     if (options.includeExcludeReason) line.push(student.excludeNote ?? '');
     if (options.includeTeacherMemo) line.push(student.teacherMemo ?? '');

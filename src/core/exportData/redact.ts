@@ -18,6 +18,8 @@ export interface ExportOptions {
   /** Accessibility / support needs. */
   includeAccessibility: boolean;
   includeGender: boolean;
+  /** The neutral 구분1/구분2 split. Treated as sensitive as gender. */
+  includeDivision: boolean;
   includeTags: boolean;
   /** The rule set, which can reveal conflicts between named students. */
   includeConstraints: boolean;
@@ -34,6 +36,7 @@ export const STUDENT_FACING: ExportOptions = {
   includeTeacherMemo: false,
   includeAccessibility: false,
   includeGender: false,
+  includeDivision: false,
   includeTags: false,
   includeConstraints: false,
   includeExcludeReason: false,
@@ -47,6 +50,7 @@ export const TEACHER_FACING: ExportOptions = {
   includeTeacherMemo: true,
   includeAccessibility: true,
   includeGender: true,
+  includeDivision: true,
   includeTags: true,
   includeConstraints: true,
   includeExcludeReason: true,
@@ -62,6 +66,7 @@ export interface RedactedStudent {
   name: string;
   status: string;
   gender?: string;
+  division?: string;
   tags?: string[];
   teacherMemo?: string;
   accessibilityNeeds?: string;
@@ -76,6 +81,7 @@ export function redactStudent(student: Student, options: ExportOptions): Redacte
     status: student.status,
   };
   if (options.includeGender) out.gender = student.gender;
+  if (options.includeDivision) out.division = student.division;
   if (options.includeTags) out.tags = [...student.tags];
   if (options.includeTeacherMemo && student.teacherMemo) out.teacherMemo = student.teacherMemo;
   if (options.includeAccessibility && student.accessibilityNeeds) {
@@ -122,6 +128,7 @@ export function findLeakedFields(payload: unknown, options: ExportOptions): stri
   if (!options.includeTeacherMemo) forbidden.push('teacherMemo');
   if (!options.includeAccessibility) forbidden.push('accessibilityNeeds');
   if (!options.includeGender) forbidden.push('gender');
+  if (!options.includeDivision) forbidden.push('division');
   if (!options.includeTags) forbidden.push('tags');
   if (!options.includeExcludeReason) forbidden.push('excludeNote');
 

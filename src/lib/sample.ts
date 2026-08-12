@@ -19,6 +19,7 @@ export function buildNeisSample(count = 25): { students: Student[]; meta: Roster
     // Left unset on purpose: the app must work without gender data, and a
     // sample that pre-fills it would hide that.
     gender: 'unset',
+    division: 'unset',
     status: 'active',
     tags: [],
     customFields: {},

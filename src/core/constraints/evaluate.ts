@@ -283,7 +283,7 @@ export function evaluateSeating(
 
       case 'genderMix': {
         // The helper only emits; `record` is what accumulates the penalty.
-        scoreGenderSeating(assignment, ctx, constraint.mode, weight, (v) =>
+        scoreGenderSeating(assignment, ctx, constraint.mode, constraint.source ?? 'gender', weight, (v) =>
           record({ ...v, constraintId: constraint.id, kind: constraint.kind, severity: constraint.severity }),
         );
         break;
@@ -327,25 +327,66 @@ export function evaluateSeating(
   return { penalty, hardViolations, softViolations, byConstraint, satisfiedConstraintIds: satisfied };
 }
 
+export type MixSource = 'gender' | 'division';
+
 /**
- * Gender handling.
+ * Which side of a two-way split a student is on, or `null` when they are on
+ * neither.
  *
- * Students whose gender is `'unset'`, `'other'` or `'undisclosed'` are simply
- * not counted. That is why turning this rule on with an empty gender column
- * produces a score of zero rather than an error: there is nothing to balance.
+ * `'unset'`, `'other'` and `'undisclosed'` all return `null`, which is what
+ * lets a mixing rule run harmlessly on a class whose gender column is empty:
+ * there is simply nothing to interleave, so the score is zero rather than an
+ * error.
+ */
+export function mixSideOf(
+  student: Student | undefined,
+  source: MixSource,
+): 'first' | 'second' | null {
+  if (!student) return null;
+  if (source === 'division') {
+    if (student.division === 'a') return 'first';
+    if (student.division === 'b') return 'second';
+    return null;
+  }
+  if (student.gender === 'male') return 'first';
+  if (student.gender === 'female') return 'second';
+  return null;
+}
+
+/** How many students actually carry a side, for diagnostics. */
+export function countMixSides(
+  students: readonly Student[],
+  source: MixSource,
+): { first: number; second: number; unknown: number } {
+  let first = 0;
+  let second = 0;
+  let unknown = 0;
+  for (const student of students) {
+    const side = mixSideOf(student, source);
+    if (side === 'first') first += 1;
+    else if (side === 'second') second += 1;
+    else unknown += 1;
+  }
+  return { first, second, unknown };
+}
+
+/**
+ * Interleaving two groups across the seats.
+ *
+ * Works the same whether the two groups are 남/여 or 구분1/구분2 — the rule
+ * only ever asks "are these two students on the same side?", never what the
+ * sides mean.
  */
 function scoreGenderSeating(
   assignment: SeatAssignment,
   ctx: EvaluationContext,
   mode: 'alternate' | 'balance',
+  source: MixSource,
   weight: number,
   emit: (violation: Omit<Violation, 'constraintId' | 'kind' | 'severity'>) => void,
 ): void {
-  const genderOf = (studentId: string | undefined): 'male' | 'female' | null => {
-    if (!studentId) return null;
-    const gender = ctx.studentsById.get(studentId)?.gender;
-    return gender === 'male' || gender === 'female' ? gender : null;
-  };
+  const genderOf = (studentId: string | undefined): 'first' | 'second' | null =>
+    studentId ? mixSideOf(ctx.studentsById.get(studentId), source) : null;
 
   if (mode === 'alternate') {
     for (const [seatId, studentId] of Object.entries(assignment)) {
@@ -359,7 +400,10 @@ function scoreGenderSeating(
         const theirs = genderOf(other);
         if (theirs && theirs === mine) {
           emit({
-            message: '남녀를 번갈아 앉히지 못한 자리가 있습니다.',
+            message:
+              source === 'division'
+                ? '같은 구분끼리 나란히 앉은 자리가 있습니다.'
+                : '남녀를 번갈아 앉히지 못한 자리가 있습니다.',
             studentIds: [studentId, other],
             penalty: weight,
           });
@@ -381,13 +425,16 @@ function scoreGenderSeating(
     const seat = ctx.seatsById.get(seatId);
     if (!seat) continue;
     const isLeft = seat.col < midpoint;
-    if (gender === 'male') isLeft ? (leftMale += 1) : (rightMale += 1);
+    if (gender === 'first') isLeft ? (leftMale += 1) : (rightMale += 1);
     else isLeft ? (leftFemale += 1) : (rightFemale += 1);
   }
   const skew = Math.abs(leftMale - rightMale) + Math.abs(leftFemale - rightFemale);
   if (skew > 1) {
     emit({
-      message: '교실 좌우의 남녀 비율이 고르지 않습니다.',
+      message:
+        source === 'division'
+          ? '교실 좌우의 구분1·구분2 비율이 고르지 않습니다.'
+          : '교실 좌우의 남녀 비율이 고르지 않습니다.',
       studentIds: [],
       penalty: weight * (skew - 1),
     });
@@ -527,7 +574,7 @@ export function evaluateGrouping(
       }
 
       case 'genderMix': {
-        scoreGenderGrouping(grouping, ctx, weight, (v) =>
+        scoreGenderGrouping(grouping, ctx, constraint.source ?? 'gender', weight, (v) =>
           record({ ...v, constraintId: constraint.id, kind: constraint.kind, severity: constraint.severity }),
         );
         break;
@@ -575,33 +622,33 @@ function scoreTagBalance(
 function scoreGenderGrouping(
   grouping: Grouping,
   ctx: EvaluationContext,
+  source: MixSource,
   weight: number,
   emit: (violation: Omit<Violation, 'constraintId' | 'kind' | 'severity'>) => void,
 ): void {
-  // Only students with a stated gender participate, so an empty gender column
-  // yields no penalty rather than an error.
+  // Only students who carry a side participate, so an empty column yields no
+  // penalty rather than an error.
   const known = grouping.groups.flatMap((group) =>
-    group.memberIds.filter((id) => {
-      const gender = ctx.studentsById.get(id)?.gender;
-      return gender === 'male' || gender === 'female';
-    }),
+    group.memberIds.filter((id) => mixSideOf(ctx.studentsById.get(id), source) !== null),
   );
   if (known.length === 0) return;
 
+  const label = source === 'division' ? '구분1·구분2' : '남녀';
+
   for (const group of grouping.groups) {
-    let male = 0;
-    let female = 0;
+    let first = 0;
+    let second = 0;
     for (const id of group.memberIds) {
-      const gender = ctx.studentsById.get(id)?.gender;
-      if (gender === 'male') male += 1;
-      else if (gender === 'female') female += 1;
+      const side = mixSideOf(ctx.studentsById.get(id), source);
+      if (side === 'first') first += 1;
+      else if (side === 'second') second += 1;
     }
-    if (male + female === 0) continue;
-    const skew = Math.abs(male - female);
+    if (first + second === 0) continue;
+    const skew = Math.abs(first - second);
     // A difference of one is unavoidable in odd-sized groups and is not a fault.
     if (skew > 1) {
       emit({
-        message: `${group.index}모둠의 남녀 인원이 ${skew}명 차이 납니다.`,
+        message: `${group.index}모둠의 ${label} 인원이 ${skew}명 차이 납니다.`,
         studentIds: [],
         penalty: weight * (skew - 1),
       });

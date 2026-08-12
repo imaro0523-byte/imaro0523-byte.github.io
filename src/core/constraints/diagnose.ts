@@ -10,6 +10,7 @@
 import { usableSeatCount } from '../layout/grid';
 import type { Classroom, Student } from '../model/types';
 import { isPlaceable } from '../model/types';
+import { countMixSides, type MixSource } from './evaluate';
 import { activeConstraints, type Constraint } from './kinds';
 
 export type DiagnosisCode =
@@ -138,22 +139,7 @@ export function diagnoseSeating(input: DiagnoseSeatingInput): Diagnosis[] {
     }
   }
 
-  // --- gender ------------------------------------------------------------
-  const wantsGender = active.some((c) => c.kind === 'genderMix');
-  if (wantsGender) {
-    const unknown = placeable.filter((s) => s.gender !== 'male' && s.gender !== 'female');
-    if (unknown.length > 0) {
-      out.push({
-        code: 'genderUnknown',
-        level: 'warning',
-        message: `성별이 입력되지 않은 학생이 ${unknown.length}명이라 남녀 균형을 정확히 맞출 수 없습니다.`,
-        suggestion:
-          unknown.length === placeable.length
-            ? '이 조건은 사실상 아무 효과가 없습니다. 명단에서 성별을 입력하거나 조건을 꺼 주세요.'
-            : '성별이 입력된 학생끼리만 균형을 맞춥니다. 필요하면 명단에서 성별을 채워 주세요.',
-      });
-    }
-  }
+  out.push(...diagnoseMixSources(active, placeable));
 
   // --- separation load ---------------------------------------------------
   const separationDegree = new Map<string, number>();
@@ -297,17 +283,48 @@ export function diagnoseGrouping(input: DiagnoseGroupingInput): Diagnosis[] {
     }
   }
 
-  const wantsGender = active.some((c) => c.kind === 'genderMix');
-  if (wantsGender) {
-    const unknown = placeable.filter((s) => s.gender !== 'male' && s.gender !== 'female');
-    if (unknown.length > 0) {
-      out.push({
-        code: 'genderUnknown',
-        level: 'warning',
-        message: `성별이 입력되지 않은 학생이 ${unknown.length}명이라 남녀 균형이 정확하지 않을 수 있습니다.`,
-        suggestion: '명단에서 성별을 채우거나 이 조건을 꺼 주세요.',
-      });
-    }
+  out.push(...diagnoseMixSources(active, placeable));
+
+  return out;
+}
+
+/**
+ * Warns when a mixing rule has too little to work with.
+ *
+ * Checks whichever attribute the rule actually reads, so a rule set to use
+ * 구분 does not complain about an empty gender column, and the wording names
+ * the right field and the right fix.
+ */
+function diagnoseMixSources(
+  active: readonly Constraint[],
+  placeable: readonly Student[],
+): Diagnosis[] {
+  const out: Diagnosis[] = [];
+  const sources = new Set<MixSource>();
+  for (const constraint of active) {
+    if (constraint.kind === 'genderMix') sources.add(constraint.source ?? 'gender');
+  }
+
+  for (const source of sources) {
+    const counts = countMixSides(placeable, source);
+    if (counts.unknown === 0) continue;
+
+    const field = source === 'division' ? '구분' : '성별';
+    const balance = source === 'division' ? '구분1·구분2 균형' : '남녀 균형';
+    const fill =
+      source === 'division'
+        ? '명단에서 «이름 순서로 구분 나누기»를 누르거나 구분을 직접 지정해 주세요.'
+        : '명단에서 성별을 입력해 주세요.';
+
+    out.push({
+      code: 'genderUnknown',
+      level: 'warning',
+      message: `${field}이 지정되지 않은 학생이 ${counts.unknown}명이라 ${balance}을 정확히 맞출 수 없습니다.`,
+      suggestion:
+        counts.unknown === placeable.length
+          ? `이 조건은 사실상 아무 효과가 없습니다. ${fill} 아니면 조건을 꺼 주세요.`
+          : `${field}이 지정된 학생끼리만 균형을 맞춥니다. ${fill}`,
+    });
   }
 
   return out;

@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 
 import { writeFixtureWorkbook } from './fixtures';
+import { TWO_RUN_NAMES } from '../support/neisFixture';
 
 /**
  * Records every request the page makes that is not same-origin.
@@ -90,6 +91,55 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     expect(counts.sort((a, b) => b - a)).toEqual([5, 4, 4, 4, 4, 4]);
 
     expect(net.external).toEqual([]);
+  });
+
+  test('이름 순서로 구분1·구분2를 한 번에 나눈다', async ({ page }) => {
+    // A roster shaped the way NEIS writes one: two 가나다 runs back to back,
+    // and no 성별 column anywhere — which is the situation this feature exists
+    // for.
+    const file = writeFixtureWorkbook('two-runs.xlsx', {
+      studentCount: TWO_RUN_NAMES.length,
+      names: TWO_RUN_NAMES,
+    });
+
+    await page.goto('/');
+    await page.getByTestId('file-input').setInputFiles(file);
+    await page.getByRole('button', { name: /이 명단으로 시작하기/ }).click();
+    await expect(page.getByRole('heading', { name: '학생 명단' })).toBeVisible();
+
+    // Nothing is split until the teacher asks.
+    await expect(page.getByText('아직 나누지 않았습니다')).toBeVisible();
+
+    await page.getByRole('button', { name: '이름 순서로 구분 나누기' }).click();
+    await expect(page.getByText('구분1 7명 · 구분2 7명', { exact: true })).toBeVisible();
+
+    // The split reads the ordering, so it must not have set anyone's gender.
+    const genderValues = await page.getByLabel('성별').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLSelectElement).value),
+    );
+    expect(new Set(genderValues)).toEqual(new Set(['unset']));
+
+    // First run is 구분1, second run is 구분2.
+    const divisions = await page.getByLabel('구분').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLSelectElement).value),
+    );
+    expect(divisions.slice(0, 7)).toEqual(['a', 'a', 'a', 'a', 'a', 'a', 'a']);
+    expect(divisions.slice(7)).toEqual(['b', 'b', 'b', 'b', 'b', 'b', 'b']);
+
+    // Swapping is available because the app cannot know which run is which.
+    await page.getByRole('button', { name: '구분1 ↔ 구분2 바꾸기' }).click();
+    const swapped = await page.getByLabel('구분').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLSelectElement).value),
+    );
+    expect(swapped.slice(0, 7)).toEqual(['b', 'b', 'b', 'b', 'b', 'b', 'b']);
+  });
+
+  test('한 덩어리로 정렬된 명단에서는 나누지 않고 이유를 말한다', async ({ page }) => {
+    await loadSample(page);
+    // The sample is 학생01…학생25, one ascending run, so there is no boundary.
+    await page.getByRole('button', { name: '이름 순서로 구분 나누기' }).click();
+    await expect(page.getByText(/가나다순이라 나눌 지점을 찾지 못했습니다/)).toBeVisible();
+    await expect(page.getByText('아직 나누지 않았습니다')).toBeVisible();
   });
 
   test('모둠 자리 배치는 모둠끼리 모여 앉고 다른 모둠과 떨어진다', async ({ page }) => {

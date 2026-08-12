@@ -9,17 +9,21 @@
 import { useMemo, useState } from 'react';
 
 import {
+  DIVISION_LABELS,
   EXCLUDED_STATUSES,
   GENDER_LABELS,
   STATUS_LABELS,
+  type Division,
   type Gender,
   type Student,
   type StudentStatus,
 } from '@/core/model/types';
 import { useAppStore } from '@/store/useAppStore';
+import { DivisionSplitPanel } from '../components/DivisionSplitPanel';
 import { PlusIcon, TrashIcon, UsersIcon, WarningIcon } from '../components/Icons';
 
 const GENDERS: Gender[] = ['unset', 'male', 'female', 'other', 'undisclosed'];
+const DIVISIONS: Division[] = ['unset', 'a', 'b'];
 const EXCLUSION_CHOICES: StudentStatus[] = [
   'transferOut',
   'withdrawn',
@@ -36,6 +40,9 @@ export function RosterScreen() {
   const addStudent = useAppStore((s) => s.addStudent);
   const setStatus = useAppStore((s) => s.setStatus);
   const restoreStudent = useAppStore((s) => s.restoreStudent);
+  const applyDivisions = useAppStore((s) => s.applyDivisions);
+  const swapDivisions = useAppStore((s) => s.swapDivisions);
+  const clearDivisions = useAppStore((s) => s.clearDivisions);
   const setStep = useAppStore((s) => s.setStep);
 
   const [search, setSearch] = useState('');
@@ -117,6 +124,13 @@ export function RosterScreen() {
         </div>
       )}
 
+      <DivisionSplitPanel
+        students={students}
+        onApply={applyDivisions}
+        onSwap={swapDivisions}
+        onClear={clearDivisions}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
@@ -148,6 +162,7 @@ export function RosterScreen() {
               <th className="px-2 py-2 text-left">번호</th>
               <th className="px-2 py-2 text-left">이름</th>
               <th className="px-2 py-2 text-left">성별</th>
+              <th className="px-2 py-2 text-left">구분</th>
               <th className="px-2 py-2 text-left">태그</th>
               <th className="px-2 py-2 text-left">배치 여부</th>
               {showTeacherFields && <th className="px-2 py-2 text-left">교사 메모</th>}
@@ -168,7 +183,7 @@ export function RosterScreen() {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-500">
                   {students.length === 0 ? '명단이 비어 있습니다.' : '검색 결과가 없습니다.'}
                 </td>
               </tr>
@@ -261,6 +276,20 @@ function StudentRow({ student, showTeacherFields, onUpdate, onStatus, onRestore,
           {GENDERS.map((gender) => (
             <option key={gender} value={gender}>
               {GENDER_LABELS[gender]}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="px-2 py-1">
+        <select
+          className="input w-24"
+          value={student.division}
+          onChange={(e) => onUpdate({ division: e.target.value as Division })}
+          aria-label="구분"
+        >
+          {DIVISIONS.map((division) => (
+            <option key={division} value={division}>
+              {DIVISION_LABELS[division]}
             </option>
           ))}
         </select>

@@ -8,6 +8,7 @@ export function makeStudent(index: number, overrides: Partial<Student> = {}): St
     number: index,
     name: `학생${String(index).padStart(2, '0')}`,
     gender: 'unset',
+    division: 'unset',
     status: 'active',
     tags: [],
     customFields: {},

@@ -40,7 +40,24 @@ export interface NeisFixtureOptions {
   /** Shift the whole table right/down, to prove no fixed offsets are assumed. */
   offsetRows?: number;
   offsetCols?: number;
+  /**
+   * Supply the names directly, overriding `학생NN`. Used to build a roster
+   * shaped the way NEIS writes one: two 가나다 runs back to back.
+   * All names must still be synthetic.
+   */
+  names?: readonly string[];
 }
+
+/**
+ * Two ascending runs of synthetic Korean names, as NEIS lays out a class:
+ * one group sorted ㄱ→ㅎ, then the next group sorted ㄱ→ㅎ again.
+ */
+export const TWO_RUN_NAMES: readonly string[] = [
+  // first run
+  '강가온', '김나래', '박다솜', '손라온', '이마루', '조바다', '한사랑',
+  // second run — the ordering resets here
+  '고아름', '노보라', '문초롱', '서하늘', '윤가람', '장미르', '허나린',
+];
 
 /** Synthetic student name for index `i` (0-based). */
 export function fixtureName(i: number): string {
@@ -87,6 +104,7 @@ export function buildNeisGrid(options: NeisFixtureOptions = {}): RawCell[][] {
     withGender = false,
     offsetRows = 0,
     offsetCols = 0,
+    names,
   } = options;
 
   const cells: RawCell[][] = [];
@@ -130,7 +148,7 @@ export function buildNeisGrid(options: NeisFixtureOptions = {}): RawCell[][] {
           ? `${number}.0`
           : number;
 
-    let name = fixtureName(i);
+    let name = names?.[i] ?? fixtureName(i);
     if (duplicateName && i === 5) name = fixtureName(0);
     if (emptyName && i === 7) name = '';
 

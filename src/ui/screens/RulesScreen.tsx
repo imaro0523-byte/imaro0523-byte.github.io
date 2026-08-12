@@ -27,7 +27,7 @@ type Draft =
   | { kind: 'separate' | 'together'; a: string; b: string; scope: ProximityScope; severity: Severity }
   | { kind: 'zone'; studentId: string; zone: ZoneTag; severity: Severity }
   | { kind: 'spreadTag' | 'tagBalance'; tag: string; severity: Severity }
-  | { kind: 'genderMix'; mode: 'alternate' | 'balance'; severity: Severity }
+  | { kind: 'genderMix'; mode: 'alternate' | 'balance'; source: 'gender' | 'division'; severity: Severity }
   | { kind: 'avoidPastPartner' | 'avoidPastNeighbour' | 'avoidPastGroupmate'; withinLast: number; severity: Severity }
   | { kind: 'examSpacing'; minDistance: number; severity: Severity };
 
@@ -38,7 +38,7 @@ const PRESETS: Array<{ name: string; description: string; build: () => Constrain
     build: () => [
       { id: uuid(), kind: 'avoidPastPartner', severity: 'strong', enabled: true, withinLast: 3 },
       { id: uuid(), kind: 'avoidPastNeighbour', severity: 'weak', enabled: true, withinLast: 2 },
-      { id: uuid(), kind: 'genderMix', severity: 'weak', enabled: true, mode: 'alternate' },
+      { id: uuid(), kind: 'genderMix', severity: 'weak', enabled: true, mode: 'alternate', source: 'gender' },
     ],
   },
   {
@@ -59,7 +59,7 @@ const PRESETS: Array<{ name: string; description: string; build: () => Constrain
     description: '지난 모둠원을 피하고 모둠별 남녀 균형을 맞춥니다.',
     build: () => [
       { id: uuid(), kind: 'avoidPastGroupmate', severity: 'weak', enabled: true, withinLast: 5 },
-      { id: uuid(), kind: 'genderMix', severity: 'weak', enabled: true, mode: 'balance' },
+      { id: uuid(), kind: 'genderMix', severity: 'weak', enabled: true, mode: 'balance', source: 'gender' },
     ],
   },
 ];
@@ -106,8 +106,12 @@ export function RulesScreen() {
         return `최근 ${constraint.withinLast}회 안에 옆자리였던 학생끼리 다시 붙지 않기`;
       case 'avoidPastGroupmate':
         return `최근 ${constraint.withinLast}회 안에 같은 모둠이었던 학생끼리 다시 만나지 않기`;
-      case 'genderMix':
-        return constraint.mode === 'alternate' ? '남녀를 번갈아 앉히기' : '남녀 인원을 고르게 나누기';
+      case 'genderMix': {
+        const what = (constraint.source ?? 'gender') === 'division' ? '구분1·구분2' : '남녀';
+        return constraint.mode === 'alternate'
+          ? `${what}를 번갈아 앉히기`
+          : `${what} 인원을 고르게 나누기`;
+      }
       case 'tagBalance':
         return `«${constraint.tag}» 학생을 모둠마다 고르게 나누기`;
       case 'spreadTag':
@@ -143,7 +147,14 @@ export function RulesScreen() {
         constraint = { id, kind: draft.kind, severity: draft.severity, enabled: true, tag: draft.tag.trim() };
         break;
       case 'genderMix':
-        constraint = { id, kind: 'genderMix', severity: draft.severity, enabled: true, mode: draft.mode };
+        constraint = {
+          id,
+          kind: 'genderMix',
+          severity: draft.severity,
+          enabled: true,
+          mode: draft.mode,
+          source: draft.source,
+        };
         break;
       case 'avoidPastPartner':
       case 'avoidPastNeighbour':
@@ -230,7 +241,7 @@ export function RulesScreen() {
                 } else if (kind === 'spreadTag' || kind === 'tagBalance') {
                   setDraft({ kind, tag: '리더', severity: 'strong' });
                 } else if (kind === 'genderMix') {
-                  setDraft({ kind, mode: 'alternate', severity: 'weak' });
+                  setDraft({ kind, mode: 'alternate', source: 'gender', severity: 'weak' });
                 } else if (kind === 'examSpacing') {
                   setDraft({ kind, minDistance: 2, severity: 'strong' });
                 } else {
@@ -244,7 +255,7 @@ export function RulesScreen() {
               <option value="avoidPastPartner">지난 짝 피하기</option>
               <option value="avoidPastNeighbour">지난 옆자리 피하기</option>
               <option value="avoidPastGroupmate">지난 모둠원 피하기</option>
-              <option value="genderMix">남녀 섞기</option>
+              <option value="genderMix">남녀 · 구분 섞기</option>
               <option value="spreadTag">태그 분산 (모둠마다 한 명)</option>
               <option value="tagBalance">태그 균형</option>
               <option value="examSpacing">시험 자리 간격</option>
@@ -332,16 +343,37 @@ export function RulesScreen() {
           )}
 
           {draft.kind === 'genderMix' && (
-            <div>
-              <label className="label" htmlFor="mode">방식</label>
-              <select id="mode" className="input" value={draft.mode} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'alternate' | 'balance' })}>
-                <option value="alternate">번갈아 앉히기</option>
-                <option value="balance">인원만 고르게</option>
-              </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                성별을 입력한 학생끼리만 적용됩니다. 미지정 학생이 있어도 오류 없이 동작합니다.
-              </p>
-            </div>
+            <>
+              <div>
+                <label className="label" htmlFor="mixSource">무엇을 기준으로</label>
+                <select
+                  id="mixSource"
+                  className="input"
+                  value={draft.source}
+                  onChange={(e) =>
+                    setDraft({ ...draft, source: e.target.value as 'gender' | 'division' })
+                  }
+                >
+                  <option value="gender">성별 (남 · 여)</option>
+                  <option value="division">구분 (구분1 · 구분2)</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {draft.source === 'division'
+                    ? '명단 화면의 «이름 순서로 구분 나누기»로 만든 두 무리를 섞습니다. 성별을 하나하나 입력하지 않아도 됩니다.'
+                    : '명단에 성별을 입력한 학생끼리만 적용됩니다.'}
+                </p>
+              </div>
+              <div>
+                <label className="label" htmlFor="mode">방식</label>
+                <select id="mode" className="input" value={draft.mode} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'alternate' | 'balance' })}>
+                  <option value="alternate">번갈아 앉히기</option>
+                  <option value="balance">인원만 고르게</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  지정되지 않은 학생이 있어도 오류 없이 동작합니다.
+                </p>
+              </div>
+            </>
           )}
 
           {(draft.kind === 'avoidPastPartner' || draft.kind === 'avoidPastNeighbour' || draft.kind === 'avoidPastGroupmate') && (

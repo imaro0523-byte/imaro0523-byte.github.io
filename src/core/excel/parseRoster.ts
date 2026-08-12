@@ -144,6 +144,9 @@ export function parseBlock(
       number,
       name,
       gender: parseGender(genderRaw),
+      // Never guessed from a name. Set by the teacher, or by the
+      // «이름 순서로 구분 나누기» button on the roster screen.
+      division: 'unset',
       status: 'active',
       tags: [],
       customFields: {},

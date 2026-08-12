@@ -26,6 +26,23 @@ export const GENDER_LABELS: Record<Gender, string> = {
 };
 
 /**
+ * A neutral two-way split of the class, used when the teacher wants students
+ * interleaved but has not stated anyone's gender.
+ *
+ * NEIS orders a roster as one 가나다 run per group, so the point where the
+ * name ordering resets can be found mechanically. That tells us *that* there
+ * are two groups, never *which* is which — so the sides are named 구분1 and
+ * 구분2 rather than 남 and 여. See `core/roster/divisionSplit.ts`.
+ */
+export type Division = 'a' | 'b' | 'unset';
+
+export const DIVISION_LABELS: Record<Division, string> = {
+  a: '구분1',
+  b: '구분2',
+  unset: '미지정',
+};
+
+/**
  * Why a student is or is not part of the current arrangement.
  *
  * Only `'active'` students receive seats and are counted when group sizes are
@@ -68,6 +85,8 @@ export interface Student {
   department?: string;
   classNumber?: string;
   gender: Gender;
+  /** Neutral two-way split. Independent of `gender`; either can drive mixing. */
+  division: Division;
   status: StudentStatus;
   /** Teacher-only note about why the student is excluded. Never exported by default. */
   excludeNote?: string;
