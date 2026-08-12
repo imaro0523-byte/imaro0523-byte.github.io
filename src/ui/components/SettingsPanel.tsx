@@ -1,0 +1,269 @@
+/**
+ * Settings, including the two controls that matter most for privacy:
+ * whether anything may be written to this browser at all, and the button that
+ * removes everything and then checks that it really is gone.
+ */
+
+import { useEffect, useState } from 'react';
+
+import { parseBackup } from '@/core/exportData/toJson';
+import { safeErrorMessage } from '@/lib/log';
+import { disposeSolver } from '@/lib/solverClient';
+import {
+  deleteProject,
+  listProjects,
+  saveProject,
+  wipeEverything,
+  type StoredProject,
+  type WipeReport,
+} from '@/lib/storage';
+import { useAppStore } from '@/store/useAppStore';
+import { uuid } from '@/core/model/ids';
+import { TrashIcon, WarningIcon } from './Icons';
+
+export function SettingsPanel({ onClose }: { onClose: () => void }) {
+  const state = useAppStore();
+  const [projects, setProjects] = useState<StoredProject[]>([]);
+  const [confirmingWipe, setConfirmingWipe] = useState(false);
+  const [report, setReport] = useState<WipeReport | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = () => {
+    if (!state.settings.storageEnabled) {
+      setProjects([]);
+      return;
+    }
+    listProjects()
+      .then(setProjects)
+      .catch(() => setProjects([]));
+  };
+
+  useEffect(refresh, [state.settings.storageEnabled]);
+
+  const save = async () => {
+    setError(null);
+    try {
+      await saveProject({
+        id: uuid(),
+        title: state.meta?.classNumber ?? '이름 없는 배치',
+        meta: state.meta,
+        students: state.students,
+        classroom: state.classroom,
+        constraints: state.constraints,
+        assignment: state.assignment,
+        grouping: state.grouping,
+        history: state.history,
+        seed: state.seed,
+      });
+      state.markSaved();
+      setMessage('이 브라우저에 저장했습니다.');
+      refresh();
+    } catch (caught) {
+      setError(safeErrorMessage(caught, '저장하지 못했습니다.'));
+    }
+  };
+
+  const restoreFile = async (file: File) => {
+    setError(null);
+    try {
+      const text = await file.text();
+      const backup = parseBackup(text);
+      state.hydrate(backup);
+      setMessage('백업 파일을 불러왔습니다.');
+      onClose();
+    } catch (caught) {
+      setError(safeErrorMessage(caught, '백업 파일을 읽지 못했습니다.'));
+    }
+  };
+
+  const wipe = async () => {
+    const result = await wipeEverything();
+    state.clearAll();
+    // Back to «saving off», which also stops the panel from reopening — and
+    // therefore recreating — the database it has just deleted.
+    state.resetSettings();
+    disposeSolver();
+    setReport(result);
+    setConfirmingWipe(false);
+    setProjects([]);
+  };
+
+  return (
+    <div className="space-y-5 text-sm">
+      <section className="space-y-2">
+        <h3 className="font-semibold">화면</h3>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.settings.reduceMotion}
+            onChange={(e) => state.updateSettings({ reduceMotion: e.target.checked })}
+          />
+          움직임 줄이기 (카드 뒤집기·카운트다운 애니메이션 끄기)
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.settings.showNames}
+            onChange={(e) => state.updateSettings({ showNames: e.target.checked })}
+          />
+          자리 카드에 이름 표시
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.settings.showNumbers}
+            onChange={(e) => state.updateSettings({ showNumbers: e.target.checked })}
+          />
+          자리 카드에 번호 표시
+        </label>
+        <div>
+          <label className="label" htmlFor="theme">화면 밝기</label>
+          <select
+            id="theme"
+            className="input max-w-[10rem]"
+            value={state.settings.theme}
+            onChange={(e) => state.updateSettings({ theme: e.target.value as 'light' | 'dark' | 'system' })}
+          >
+            <option value="system">시스템 설정 따르기</option>
+            <option value="light">밝게</option>
+            <option value="dark">어둡게</option>
+          </select>
+        </div>
+      </section>
+
+      <section className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <h3 className="font-semibold">이 브라우저에 저장하기</h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          기본값은 «저장하지 않음»입니다. 새로고침하면 학생 정보가 사라지므로, 여러 사람이 함께 쓰는
+          컴퓨터에서도 안전합니다.
+        </p>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={state.settings.storageEnabled}
+            onChange={(e) => state.updateSettings({ storageEnabled: e.target.checked })}
+          />
+          <span>
+            <span className="font-medium">이 브라우저에 저장하는 기능 켜기</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              켜면 «저장» 버튼이 생깁니다. 버튼을 눌렀을 때만, 이 컴퓨터의 이 브라우저 안(IndexedDB)에
+              학생 명단·자리·모둠·조건·과거 기록이 저장됩니다. 저장된 내용은 이 컴퓨터를 벗어나지 않으며,
+              다른 브라우저나 다른 기기에서는 보이지 않습니다.
+            </span>
+          </span>
+        </label>
+
+        {state.settings.storageEnabled && (
+          <>
+            <button type="button" className="btn-secondary" onClick={() => void save()}>
+              지금 로컬에 저장
+            </button>
+            {projects.length > 0 && (
+              <ul className="space-y-1 text-xs">
+                {projects.map((project) => (
+                  <li key={project.id} className="flex items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                    <span className="flex-1">
+                      {project.title} · {project.students.length}명 ·{' '}
+                      {new Date(project.savedAt).toLocaleString('ko-KR')}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:underline"
+                      onClick={() => {
+                        state.hydrate(project);
+                        onClose();
+                      }}
+                    >
+                      불러오기
+                    </button>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => void deleteProject(project.id).then(refresh)}
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-semibold">백업 파일에서 불러오기</h3>
+        <input
+          type="file"
+          accept=".json,application/json"
+          className="text-xs"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void restoreFile(file);
+            e.target.value = '';
+          }}
+        />
+      </section>
+
+      <section className="space-y-2 rounded-lg border border-red-300 p-3 dark:border-red-800">
+        <h3 className="flex items-center gap-1.5 font-semibold text-red-700 dark:text-red-400">
+          <WarningIcon className="h-4 w-4" />
+          모든 학생 정보 삭제
+        </h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          화면에 있는 명단과 배치, 이 브라우저에 저장한 내용, 오프라인 캐시를 모두 지웁니다.
+          지운 뒤 실제로 남은 것이 없는지 다시 확인해서 결과를 알려 드립니다. 이미 내보낸 파일은
+          지워지지 않으니 직접 삭제해 주세요.
+        </p>
+        {confirmingWipe ? (
+          <div className="flex gap-2">
+            <button type="button" className="btn-danger" onClick={() => void wipe()}>
+              <TrashIcon />
+              정말 모두 삭제합니다
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setConfirmingWipe(false)}>
+              취소
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="btn-danger" onClick={() => setConfirmingWipe(true)}>
+            <TrashIcon />
+            모든 정보 삭제
+          </button>
+        )}
+
+        {report && (
+          <div
+            className={`rounded border p-2 text-xs ${
+              report.verifiedEmpty
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
+            }`}
+          >
+            <p className="font-semibold">
+              {report.verifiedEmpty ? '삭제 후 확인 완료 — 남은 학생 정보가 없습니다.' : '일부가 남아 있을 수 있습니다.'}
+            </p>
+            <ul className="mt-1 list-disc pl-4">
+              <li>저장소(IndexedDB): {report.indexedDbDeleted ? '삭제됨' : '삭제하지 못함'}</li>
+              <li>브라우저 설정값: {report.localStorageKeysRemoved}개 삭제</li>
+              <li>오프라인 캐시: {report.cachesDeleted}개 삭제</li>
+            </ul>
+            {report.problems.map((problem, i) => (
+              <p key={i} className="mt-1">
+                · {problem}
+              </p>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {(message || error) && (
+        <p className={error ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}>
+          {error ?? message}
+        </p>
+      )}
+    </div>
+  );
+}

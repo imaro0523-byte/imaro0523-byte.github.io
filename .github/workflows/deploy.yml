@@ -1,0 +1,67 @@
+name: 빌드와 GitHub Pages 배포
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: 테스트와 빌드
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: 타입 검사
+        run: npm run typecheck
+
+      # Includes the privacy source scan, which fails the build if anyone adds
+      # a fetch call, an external URL or a console.log to src/.
+      - name: 단위 테스트
+        run: npm test
+
+      - name: 프로덕션 빌드
+        run: npx vite build
+
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+
+      # Asserts zero external network requests across the whole workflow.
+      - name: 브라우저 흐름 테스트
+        run: npm run test:e2e
+
+      - name: 빌드 결과 업로드
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: 배포
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

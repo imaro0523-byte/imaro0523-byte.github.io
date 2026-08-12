@@ -7,12 +7,7 @@
  * and the school name. Neither is a student.
  */
 
-import {
-  isBlank,
-  normalizeCell,
-  normalizeName,
-  parseNumberLike,
-} from '../model/normalize';
+import { normalizeCell, normalizeName, parseNumberLike } from '../model/normalize';
 import { uuid } from '../model/ids';
 import type { Gender, Student } from '../model/types';
 import { cellAt, type RawCell } from './grid';

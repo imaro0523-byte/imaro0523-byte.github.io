@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="자리배치 도우미">
+  <rect width="512" height="512" rx="96" fill="#1d4ed8" />
+  <rect x="96" y="92" width="320" height="34" rx="10" fill="#ffffff" opacity="0.55" />
+  <g fill="#ffffff">
+    <rect x="96" y="176" width="86" height="66" rx="14" />
+    <rect x="213" y="176" width="86" height="66" rx="14" />
+    <rect x="330" y="176" width="86" height="66" rx="14" />
+    <rect x="96" y="266" width="86" height="66" rx="14" />
+    <rect x="213" y="266" width="86" height="66" rx="14" opacity="0.45" />
+    <rect x="330" y="266" width="86" height="66" rx="14" />
+    <rect x="96" y="356" width="86" height="66" rx="14" opacity="0.45" />
+    <rect x="213" y="356" width="86" height="66" rx="14" />
+    <rect x="330" y="356" width="86" height="66" rx="14" />
+  </g>
+</svg>

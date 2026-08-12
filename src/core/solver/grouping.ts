@@ -127,6 +127,8 @@ export function solveGrouping(request: GroupingRequest): GroupingResult {
 
   const candidates: GroupingCandidate[] = [];
   const seen = new Set<string>();
+  /** See the note in `seating.ts`: snapshot only on improvement. */
+  let bestPenalty = Number.POSITIVE_INFINITY;
 
   const consider = (matrix: string[][], seed: number) => {
     const key = matrix.map((list) => [...list].sort().join('+')).join('|');
@@ -136,9 +138,9 @@ export function solveGrouping(request: GroupingRequest): GroupingResult {
     const evaluation = evaluateGrouping(grouping, request.constraints, ctx);
     candidates.push({ grouping, evaluation, seed });
     candidates.sort((a, b) => a.evaluation.penalty - b.evaluation.penalty);
-    if (candidates.length > request.candidateCount * 3) {
-      candidates.length = request.candidateCount * 3;
-    }
+    const limit = Math.max(1, request.candidateCount) * 3;
+    if (candidates.length > limit) candidates.length = limit;
+    if (evaluation.penalty < bestPenalty) bestPenalty = evaluation.penalty;
   };
 
   for (let restart = 0; restart < budget.restarts; restart += 1) {
@@ -200,12 +202,18 @@ export function solveGrouping(request: GroupingRequest): GroupingResult {
 
       if (accept) {
         currentPenalty = evaluation.penalty;
-        if (evaluation.hardViolations.length === 0) consider(matrix, restartSeed);
+        if (evaluation.hardViolations.length === 0 && evaluation.penalty < bestPenalty) {
+          consider(matrix, restartSeed);
+        }
       } else {
         listA[indexA] = a;
         listB[indexB] = b;
       }
     }
+
+    // Record where this restart finished, so the candidates on offer differ
+    // from one another rather than being variations of a single solution.
+    consider(matrix, restartSeed);
   }
 
   const feasible = candidates.filter((c) => c.evaluation.hardViolations.length === 0);

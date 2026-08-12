@@ -6,13 +6,13 @@
   "description": "브라우저 안에서만 동작하는 교실 자리 배치 · 짝 배치 · 모둠 편성 도구",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b --noEmit && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc --noEmit",
     "fixtures": "tsx scripts/make-fixtures.ts"
   },
   "dependencies": {

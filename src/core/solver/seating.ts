@@ -206,6 +206,14 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
   const best: SeatingCandidate[] = [];
   const seen = new Set<string>();
   let iterations = 0;
+  /**
+   * Best penalty recorded so far. Candidates are only snapshotted when they
+   * improve on it, or once at the end of each restart. Without this guard an
+   * unconstrained run — where every swap scores zero and is therefore accepted
+   * — would serialise and sort a candidate on every one of tens of thousands
+   * of steps, for no gain.
+   */
+  let bestPenalty = Number.POSITIVE_INFINITY;
 
   const consider = (assignment: SeatAssignment, evaluation: Evaluation, seed: number) => {
     const key = signature(assignment);
@@ -213,7 +221,9 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
     seen.add(key);
     best.push({ assignment: { ...assignment }, evaluation, seed });
     best.sort((a, b) => a.evaluation.penalty - b.evaluation.penalty);
-    if (best.length > Math.max(1, request.candidateCount) * 3) best.length = request.candidateCount * 3;
+    const limit = Math.max(1, request.candidateCount) * 3;
+    if (best.length > limit) best.length = limit;
+    if (evaluation.penalty < bestPenalty) bestPenalty = evaluation.penalty;
   };
 
   // Nothing to shuffle: return the single arrangement that exists.
@@ -231,8 +241,9 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
       const strategy = restart === 0 ? request.strategy : 'random';
 
       let current = initialAssignment(prepared, request.students, rng, strategy);
-      let currentScore = evaluateSeating(current, constraints, prepared.ctx).penalty;
-      consider(current, evaluateSeating(current, constraints, prepared.ctx), restartSeed);
+      const startEvaluation = evaluateSeating(current, constraints, prepared.ctx);
+      let currentScore = startEvaluation.penalty;
+      consider(current, startEvaluation, restartSeed);
 
       const seatPool = prepared.freeSeatIds;
       for (let step = 0; step < budget.steps; step += 1) {
@@ -256,11 +267,19 @@ export function solveSeating(request: SeatingRequest): SeatingResult {
 
         if (accept) {
           currentScore = evaluation.penalty;
-          if (evaluation.hardViolations.length === 0) consider(current, evaluation, restartSeed);
+          if (evaluation.hardViolations.length === 0 && evaluation.penalty < bestPenalty) {
+            consider(current, evaluation, restartSeed);
+          }
         } else {
           applySwap(current, seatA, seatB); // undo
         }
       }
+
+      // Keep where this restart ended up even if it never beat the running
+      // best, so the teacher is offered genuinely different candidates rather
+      // than several near-copies of one solution.
+      const endEvaluation = evaluateSeating(current, constraints, prepared.ctx);
+      consider(current, endEvaluation, restartSeed);
     }
   }
 
