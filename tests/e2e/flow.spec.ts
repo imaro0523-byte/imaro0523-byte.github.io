@@ -238,6 +238,58 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     }
   });
 
+  test('모둠 자리에서 학생을 옮기면 모둠 표시도 따라 바뀐다', async ({ page }) => {
+    await loadSample(page);
+    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
+    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
+    await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
+
+    const seats = page.locator('.seat-card');
+    const groupOfSeat = async (index: number) =>
+      /(\d+)모둠/.exec(await seats.nth(index).innerText())?.[1];
+
+    const firstGroup = await groupOfSeat(0);
+    // Find a seat belonging to a different island.
+    const total = await seats.count();
+    let otherIndex = -1;
+    for (let i = 1; i < total; i += 1) {
+      if ((await groupOfSeat(i)) !== firstGroup) {
+        otherIndex = i;
+        break;
+      }
+    }
+    expect(otherIndex).toBeGreaterThan(0);
+    const otherGroup = await groupOfSeat(otherIndex);
+
+    const firstName = (await seats.nth(0).innerText()).split('\n')[0];
+    const otherName = (await seats.nth(otherIndex).innerText()).split('\n')[0];
+
+    await seats.nth(0).click();
+    await seats.nth(otherIndex).click();
+
+    // The students have swapped, and each now shows the group of the island
+    // they are sitting in — not the one they came from.
+    await expect(seats.nth(0)).toContainText(otherName as string);
+    await expect(seats.nth(otherIndex)).toContainText(firstName as string);
+    expect(await groupOfSeat(0)).toBe(firstGroup);
+    expect(await groupOfSeat(otherIndex)).toBe(otherGroup);
+
+    // The group list agrees: sizes are unchanged and the moved student is
+    // listed under their new group.
+    const sizes = (await page.locator('.group-card').allInnerTexts()).map(
+      (text) => Number(/(\d+)명/.exec(text)?.[1] ?? 0),
+    );
+    expect(sizes.sort((a, b) => b - a)).toEqual([5, 4, 4, 4, 4, 4]);
+
+    const movedCard = await page
+      .locator('.group-card')
+      .filter({ hasText: `${otherGroup}모둠` })
+      .first()
+      .innerText();
+    expect(movedCard).toContain(firstName as string);
+  });
+
   test('교사 관점과 학생 관점을 바꾸면 배치가 뒤집힌다', async ({ page }) => {
     await loadSample(page);
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();

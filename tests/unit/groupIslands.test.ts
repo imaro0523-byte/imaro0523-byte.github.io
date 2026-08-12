@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildAdjacency, seatDistance } from '@/core/layout/adjacency';
-import { seatsOf } from '@/core/layout/grid';
+import { createClassroom, seatsOf } from '@/core/layout/grid';
 import {
   createGroupClassroom,
   hasGroupIslands,
@@ -9,6 +9,7 @@ import {
   islandShape,
   islandsMatchSizes,
   islandsPerRowFor,
+  regroupFromSeats,
 } from '@/core/layout/groupIslands';
 import { partitionByCount } from '@/core/solver/partition';
 import { solveGroupingByCount } from '@/core/solver/grouping';
@@ -114,6 +115,109 @@ describe('group classroom', () => {
     expect(islandsMatchSizes(classroom, [5, 4, 4, 4, 4, 4])).toBe(true);
     expect(islandsMatchSizes(classroom, [4, 4, 4, 4, 4, 4])).toBe(false);
     expect(islandsMatchSizes(classroom, partitionByCount(25, 7))).toBe(false);
+  });
+});
+
+describe('regrouping after a manual seat move', () => {
+  /** Two islands of two, seated in order. */
+  function setup() {
+    const classroom = createGroupClassroom({ sizes: [2, 2] });
+    const seats = seatsOf(classroom).sort(
+      (a, b) => (a.groupSlot ?? 0) - (b.groupSlot ?? 0) || a.row - b.row || a.col - b.col,
+    );
+    const assignment: SeatAssignment = {};
+    ['s01', 's02', 's03', 's04'].forEach((id, i) => {
+      const seat = seats[i];
+      if (seat) assignment[seat.id] = id;
+    });
+    const grouping: Grouping = {
+      excludedIds: [],
+      groups: [
+        { id: 'g1', index: 1, colorIndex: 1, memberIds: ['s01', 's02'], roles: { s01: '발표' }, locked: false },
+        { id: 'g2', index: 2, colorIndex: 2, memberIds: ['s03', 's04'], roles: {}, locked: false },
+      ],
+    };
+    return { classroom, seats, assignment, grouping };
+  }
+
+  it('moves a student into the group whose island they now sit in', () => {
+    const { classroom, seats, assignment, grouping } = setup();
+
+    // Swap one member of group 1 with one member of group 2.
+    const seatA = (seats[0] as { id: string }).id;
+    const seatB = (seats[2] as { id: string }).id;
+    const swapped: SeatAssignment = { ...assignment, [seatA]: 's03', [seatB]: 's01' };
+
+    const next = regroupFromSeats(classroom, swapped, grouping);
+    const groupOf = (id: string) =>
+      next.groups.find((group) => group.memberIds.includes(id))?.index;
+
+    expect(groupOf('s03')).toBe(1);
+    expect(groupOf('s01')).toBe(2);
+    expect(groupOf('s02')).toBe(1);
+    expect(groupOf('s04')).toBe(2);
+  });
+
+  it('keeps group sizes intact after a swap', () => {
+    const { classroom, seats, assignment, grouping } = setup();
+    const swapped: SeatAssignment = {
+      ...assignment,
+      [(seats[0] as { id: string }).id]: 's03',
+      [(seats[2] as { id: string }).id]: 's01',
+    };
+    const next = regroupFromSeats(classroom, swapped, grouping);
+    expect(next.groups.map((g) => g.memberIds.length)).toEqual([2, 2]);
+  });
+
+  it('keeps the island’s own number, colour and lock', () => {
+    const { classroom, assignment, grouping } = setup();
+    const next = regroupFromSeats(classroom, assignment, grouping);
+    expect(next.groups.map((g) => g.index)).toEqual([1, 2]);
+    expect(next.groups.map((g) => g.id)).toEqual(['g1', 'g2']);
+    expect(next.groups.map((g) => g.colorIndex)).toEqual([1, 2]);
+  });
+
+  it('carries a student’s role with them to the new group', () => {
+    const { classroom, seats, assignment, grouping } = setup();
+    const swapped: SeatAssignment = {
+      ...assignment,
+      [(seats[0] as { id: string }).id]: 's03',
+      [(seats[2] as { id: string }).id]: 's01',
+    };
+    const next = regroupFromSeats(classroom, swapped, grouping);
+    // s01 had 발표 and is now in group 2, so the role goes with them.
+    expect(next.groups[1]?.roles['s01']).toBe('발표');
+    expect(next.groups[0]?.roles['s01']).toBeUndefined();
+  });
+
+  it('leaves an ordinary classroom’s groups untouched', () => {
+    const plain = createClassroom({ rows: 2, cols: 4 });
+    const seats = seatsOf(plain);
+    const assignment: SeatAssignment = {};
+    ['s01', 's02', 's03', 's04'].forEach((id, i) => {
+      const seat = seats[i];
+      if (seat) assignment[seat.id] = id;
+    });
+    const grouping: Grouping = {
+      excludedIds: [],
+      groups: [
+        { id: 'g1', index: 1, colorIndex: 1, memberIds: ['s01', 's02'], roles: {}, locked: false },
+        { id: 'g2', index: 2, colorIndex: 2, memberIds: ['s03', 's04'], roles: {}, locked: false },
+      ],
+    };
+    // Seats carry no group information here, so membership must not change.
+    expect(regroupFromSeats(plain, assignment, grouping)).toBe(grouping);
+  });
+
+  it('does not lose a student who has no seat', () => {
+    const { classroom, seats, grouping } = setup();
+    const partial: SeatAssignment = {
+      [(seats[0] as { id: string }).id]: 's01',
+      [(seats[2] as { id: string }).id]: 's03',
+    };
+    const next = regroupFromSeats(classroom, partial, grouping);
+    const all = next.groups.flatMap((g) => g.memberIds);
+    expect(all.sort()).toEqual(['s01', 's02', 's03', 's04']);
   });
 });
 

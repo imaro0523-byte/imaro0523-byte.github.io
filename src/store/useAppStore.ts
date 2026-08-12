@@ -11,6 +11,7 @@ import { create } from 'zustand';
 import type { Constraint } from '@/core/constraints/kinds';
 import { buildRecord } from '@/core/history/record';
 import { createClassroom, retagZones, seatsOf } from '@/core/layout/grid';
+import { regroupFromSeats } from '@/core/layout/groupIslands';
 import { uuid } from '@/core/model/ids';
 import type {
   ArrangementRecord,
@@ -168,6 +169,21 @@ interface AppState extends Snapshot {
 }
 
 const UNDO_LIMIT = 40;
+
+/**
+ * Keeps group membership in step with the seating after a manual move.
+ *
+ * Only applies to island rooms; in an ordinary grid the seats say nothing
+ * about groups, so swapping two students must leave their groups alone.
+ */
+function regroupPatch(
+  state: { classroom: Classroom; grouping: Grouping | null },
+  assignment: SeatAssignment,
+): { grouping?: Grouping } {
+  if (!state.grouping) return {};
+  const regrouped = regroupFromSeats(state.classroom, assignment, state.grouping);
+  return regrouped === state.grouping ? {} : { grouping: regrouped };
+}
 
 function snapshotOf(state: Snapshot): Snapshot {
   return {
@@ -426,7 +442,10 @@ export const useAppStore = create<AppState>()((set, get) => {
           assignment[seatA] = b;
           assignment[seatB] = a;
         }
-        return { assignment };
+        // In an island room the seat decides the group, so membership follows
+        // the move. Otherwise a swapped pair keeps its old colours and the map
+        // shows two students sitting where they visibly do not belong.
+        return { assignment, ...regroupPatch(state, assignment) };
       }),
 
     moveStudentToSeat: (studentId, seatId) =>
@@ -439,7 +458,7 @@ export const useAppStore = create<AppState>()((set, get) => {
           if (displaced) assignment[from] = displaced;
           else delete assignment[from];
         }
-        return { assignment };
+        return { assignment, ...regroupPatch(state, assignment) };
       }),
 
     setSeed: (seed) => set({ seed }),

@@ -14,7 +14,7 @@
  */
 
 import { shortId, uuid } from '../model/ids';
-import type { Classroom, Facing, Seat } from '../model/types';
+import type { Classroom, Facing, Grouping, Seat, SeatAssignment } from '../model/types';
 import { zonesFor } from './grid';
 
 export interface IslandSeat {
@@ -169,6 +169,64 @@ export function createGroupClassroom(options: GroupRoomOptions): Classroom {
     cols,
     seats: [...grid.values()].sort((a, b) => a.row - b.row || a.col - b.col),
     windowSide,
+  };
+}
+
+/**
+ * Rebuilds group membership from where students are actually sitting.
+ *
+ * In an island room the seat *is* the group: a student sitting in 3모둠's
+ * island is in 3모둠. So when a teacher swaps two students between islands by
+ * hand, membership has to follow them — otherwise the swapped pair keep their
+ * old group colours and the map shows two students who visibly do not belong
+ * where they are sitting.
+ *
+ * The island's own identity — its number, name, colour and lock — stays put.
+ * Only the people move.
+ */
+export function regroupFromSeats(
+  classroom: Classroom,
+  assignment: SeatAssignment,
+  previous: Grouping,
+): Grouping {
+  const slotOfSeat = new Map<string, number>();
+  for (const seat of classroom.seats) {
+    if (seat.kind === 'seat' && seat.groupSlot !== undefined) slotOfSeat.set(seat.id, seat.groupSlot);
+  }
+  if (slotOfSeat.size === 0) return previous;
+
+  const bySlot = new Map<number, string[]>();
+  const placed = new Set<string>();
+  for (const [seatId, studentId] of Object.entries(assignment)) {
+    const slot = slotOfSeat.get(seatId);
+    if (slot === undefined) continue;
+    const list = bySlot.get(slot) ?? [];
+    list.push(studentId);
+    bySlot.set(slot, list);
+    placed.add(studentId);
+  }
+
+  // A role belongs to the person, not to the chair, so it travels with them.
+  const roleOf = new Map<string, string>();
+  for (const group of previous.groups) {
+    for (const [studentId, role] of Object.entries(group.roles)) roleOf.set(studentId, role);
+  }
+
+  return {
+    excludedIds: [...previous.excludedIds],
+    groups: previous.groups.map((group) => {
+      // Members who are not sitting in any island — unseated, or parked on a
+      // loose seat — stay where they were rather than vanishing.
+      const stragglers = group.memberIds.filter((id) => !placed.has(id));
+      const memberIds = [...(bySlot.get(group.index) ?? []), ...stragglers];
+
+      const roles: Record<string, string> = {};
+      for (const memberId of memberIds) {
+        const role = roleOf.get(memberId);
+        if (role !== undefined) roles[memberId] = role;
+      }
+      return { ...group, memberIds, roles };
+    }),
   };
 }
 
