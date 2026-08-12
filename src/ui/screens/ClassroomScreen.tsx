@@ -5,12 +5,19 @@
  * teacher can build the layout while looking at it the way they will see it.
  */
 
+import { useMemo, useState } from 'react';
+
 import { createClassroom, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
+import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS } from '@/core/model/types';
+import { partitionByCount, PartitionError } from '@/core/solver/partition';
+import { safeErrorMessage } from '@/lib/log';
 import { useAppStore } from '@/store/useAppStore';
 import { SeatMap } from '../components/SeatMap';
-import { FlipIcon, GridIcon, WarningIcon } from '../components/Icons';
+import { FlipIcon, GridIcon, UsersIcon, WarningIcon } from '../components/Icons';
+
+const GROUP_COUNT_CHOICES = [4, 5, 6, 7, 8, 9];
 
 interface Template {
   key: string;
@@ -40,15 +47,9 @@ const TEMPLATES: Template[] = [
     cols: 6,
     pairDesks: false,
   },
-  {
-    key: 'group',
-    name: '모둠 6개 (4인)',
-    description: '네 명이 마주 보는 섬 모양으로 배치합니다.',
-    rows: 4,
-    cols: 7,
-    pairDesks: true,
-    aisleCols: [3],
-  },
+  // Group rooms are not in this list: a plain grid with an aisle in it cannot
+  // represent 모둠 islands honestly. They get their own builder below, which
+  // produces real islands sized to the class.
   {
     key: 'wide',
     name: '넓은 교실 6줄 7칸',
@@ -144,6 +145,8 @@ export function ClassroomScreen() {
             </div>
           </div>
 
+          <GroupRoomBuilder />
+
           <div className="card space-y-3">
             <h2 className="text-sm font-semibold">직접 조절</h2>
 
@@ -227,6 +230,135 @@ export function ClassroomScreen() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Builds a room of real 모둠 islands.
+ *
+ * This replaced a "모둠 6개" template that was really just a grid with an
+ * aisle down the middle — pressing it produced something that looked like two
+ * blocks of twelve, which said one thing and showed another.
+ *
+ * Island sizes come from the actual class size, so choosing 6모둠 for 25
+ * students builds 5·4·4·4·4·4 rather than pretending everyone fits in fours.
+ */
+function GroupRoomBuilder() {
+  const students = useAppStore((s) => s.students);
+  const classroom = useAppStore((s) => s.classroom);
+  const setClassroom = useAppStore((s) => s.setClassroom);
+
+  const [groupCount, setGroupCount] = useState(6);
+  const [gap, setGap] = useState(1);
+
+  const activeCount = students.filter((s) => s.status === 'active').length;
+
+  const plan = useMemo(() => {
+    // With no roster yet, fall back to four per group so the preview is still
+    // meaningful rather than empty.
+    const total = activeCount > 0 ? activeCount : groupCount * 4;
+    try {
+      return { sizes: partitionByCount(total, groupCount), total, error: null as string | null };
+    } catch (caught) {
+      return {
+        sizes: [] as number[],
+        total,
+        error: caught instanceof PartitionError ? caught.message : safeErrorMessage(caught),
+      };
+    }
+  }, [activeCount, groupCount]);
+
+  const build = () => {
+    if (plan.sizes.length === 0) return;
+    setClassroom(
+      createGroupClassroom({
+        sizes: plan.sizes,
+        gap,
+        windowSide: classroom.windowSide,
+      }),
+    );
+  };
+
+  return (
+    <div className="card space-y-3">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+        <UsersIcon className="h-4 w-4" />
+        모둠 교실 만들기
+      </h2>
+      <p className="text-xs text-slate-500">
+        모둠마다 책상 섬을 만들고 사이를 통로로 비웁니다. 같은 모둠은 마주 보고 모여 앉습니다.
+      </p>
+
+      <div>
+        <span className="label">모둠 수</span>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {GROUP_COUNT_CHOICES.map((count) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => setGroupCount(count)}
+              className={`rounded-lg border px-2.5 py-1 text-xs ${
+                groupCount === count
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                  : 'border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {count}모둠
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <span className="label">모둠 사이 간격</span>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {[
+            { value: 1, label: '보통' },
+            { value: 2, label: '넓게' },
+            { value: MAX_GAP, label: '아주 넓게' },
+          ].map((choice) => (
+            <button
+              key={choice.value}
+              type="button"
+              onClick={() => setGap(choice.value)}
+              className={`rounded-lg border px-2.5 py-1 text-xs ${
+                gap === choice.value
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                  : 'border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {plan.error ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{plan.error}</p>
+      ) : (
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          {activeCount > 0 ? `학생 ${activeCount}명을 ` : '학생 명단이 없어 한 모둠 4명으로 가정해 '}
+          <strong>
+            {groupCount}모둠 — {plan.sizes.join(', ')}명
+          </strong>
+          으로 나눈 교실을 만듭니다 (좌석 {plan.sizes.reduce((a, b) => a + b, 0)}석).
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="btn-primary w-full"
+        onClick={build}
+        disabled={plan.sizes.length === 0}
+      >
+        이 모양으로 교실 만들기
+      </button>
+
+      <p className="text-[11px] text-slate-500">
+        «자리 만들기»에서 «모둠 + 자리 배치»를 고르면 이 과정이 자동으로 이루어지므로, 여기서
+        미리 만들지 않아도 됩니다.
+      </p>
     </div>
   );
 }

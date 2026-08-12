@@ -183,7 +183,16 @@ export function SeatMap({
                           : 'border-slate-300 dark:border-slate-600',
                       onSeatClick ? 'cursor-pointer hover:border-blue-400' : 'cursor-default',
                     ].join(' ')}
-                    style={color && !hidden ? { borderColor: color, borderWidth: 3 } : undefined}
+                    style={(() => {
+                      const islandColor =
+                        color ??
+                        (seat.groupSlot !== undefined && !student
+                          ? GROUP_COLORS[(seat.groupSlot - 1) % GROUP_COLORS.length]
+                          : undefined);
+                      return islandColor && !hidden
+                        ? { borderColor: islandColor, borderWidth: 3 }
+                        : undefined;
+                    })()}
                   >
                     {locked.has(seat.id) && (
                       <LockIcon className="absolute right-1 top-1 h-3 w-3 text-blue-600" />
@@ -193,6 +202,16 @@ export function SeatMap({
                         className={`break-keep font-semibold leading-tight ${nameSizeClass(label, presentation)}`}
                       >
                         {label}
+                      </span>
+                    ) : seat.groupSlot !== undefined ? (
+                      // An empty seat in a group room still says which island it
+                      // belongs to, so a preview of "6모둠" cannot be mistaken
+                      // for two big blocks of desks.
+                      <span
+                        className={`font-semibold ${presentation ? 'text-base' : 'text-[10px]'}`}
+                        style={{ color: GROUP_COLORS[(seat.groupSlot - 1) % GROUP_COLORS.length] }}
+                      >
+                        {seat.groupSlot}모둠
                       </span>
                     ) : (
                       <span className={presentation ? 'text-base' : 'text-[10px]'}>빈자리</span>

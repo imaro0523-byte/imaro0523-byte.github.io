@@ -142,6 +142,34 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await expect(page.getByText('아직 나누지 않았습니다')).toBeVisible();
   });
 
+  test('교실 화면에서 6모둠을 만들면 섬 6개가 그려진다', async ({ page }) => {
+    await loadSample(page);
+    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+
+    // 25 students into 6 groups is 5·4·4·4·4·4, and the preview must say so
+    // before anything is built.
+    await expect(page.getByText(/6모둠 — 5, 4, 4, 4, 4, 4명/)).toBeVisible();
+    await page.getByRole('button', { name: '이 모양으로 교실 만들기' }).click();
+    await expect(page.getByText('좌석 25석 · 배치할 학생 25명')).toBeVisible();
+
+    // Six distinct islands appear on the map, not two large blocks.
+    const labels = await page.locator('.seat-card').allInnerTexts();
+    const groups = labels
+      .map((text) => /(\d+)모둠/.exec(text)?.[1])
+      .filter((value): value is string => value !== undefined);
+    expect(groups).toHaveLength(25);
+    expect(new Set(groups).size).toBe(6);
+
+    // Changing the group count rebuilds the room.
+    await page.getByRole('button', { name: '8모둠', exact: true }).click();
+    await page.getByRole('button', { name: '이 모양으로 교실 만들기' }).click();
+    const eight = await page.locator('.seat-card').allInnerTexts();
+    const eightGroups = eight
+      .map((text) => /(\d+)모둠/.exec(text)?.[1])
+      .filter((value): value is string => value !== undefined);
+    expect(new Set(eightGroups).size).toBe(8);
+  });
+
   test('모둠 자리 배치는 모둠끼리 모여 앉고 다른 모둠과 떨어진다', async ({ page }) => {
     await loadSample(page);
 
