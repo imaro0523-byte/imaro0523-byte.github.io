@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>자리배치 도우미 — 나이스 명렬표로 만드는 교실 자리·모둠 배치</title>
+    <meta
+      name="description"
+      content="나이스에서 내려받은 명렬표 엑셀을 그대로 올려 교실 자리 배치, 2인 짝꿍, 모둠 편성을 만드는 무료 도구. 학생 정보는 브라우저 밖으로 나가지 않습니다."
+    />
+    <link rel="canonical" href="./" />
+    <!--
+      This is the guide site, and it is a separate page from the app on purpose.
+
+      A roster is never loaded here, so this page may carry advertising and the
+      analytics that come with it. The app at ./app/ carries neither, and its
+      Content-Security-Policy forbids loading any third-party script at all.
+      Keeping the two apart is what lets one be funded without the other being
+      compromised: an ad script cannot read a class list from a page the class
+      list is never on.
+
+      ── 애드센스를 넣을 위치 ────────────────────────────────────────────
+      승인 후 아래 주석을 풀고 ca-pub-XXXX 를 본인 게시자 ID로 바꾸세요.
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXX" crossorigin="anonymous"></script>
+      앱(./app/)에는 절대 넣지 마세요. 넣는 순간 개인정보 문서의 주장이
+      전부 거짓이 됩니다.
+      ──────────────────────────────────────────────────────────────────
+    -->
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Pretendard, -apple-system, "Malgun Gothic", "맑은 고딕",
+          "Apple SD Gothic Neo", system-ui, sans-serif;
+        line-height: 1.7;
+        color: #0f172a;
+        background: #f8fafc;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e2e8f0; background: #020617; }
+        .card { background: #0f172a !important; border-color: #1e293b !important; }
+        .muted { color: #94a3b8 !important; }
+      }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+      h1 { font-size: 1.9rem; line-height: 1.3; margin: 0 0 .5rem; }
+      h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; }
+      h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
+      .lead { font-size: 1.05rem; color: #334155; }
+      .muted { color: #64748b; font-size: .9rem; }
+      .cta {
+        display: inline-block; background: #1d4ed8; color: #fff; text-decoration: none;
+        padding: .8rem 1.6rem; border-radius: .6rem; font-weight: 700; font-size: 1.05rem;
+        margin: 1rem 0 .25rem;
+      }
+      .cta:hover { background: #1e40af; }
+      .card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem;
+        padding: 1rem 1.25rem; margin: 1rem 0;
+      }
+      .safe { background: #ecfdf5; border-color: #a7f3d0; }
+      @media (prefers-color-scheme: dark) { .safe { background: #022c22 !important; border-color: #065f46 !important; } }
+      ul { padding-left: 1.2rem; }
+      li { margin: .35rem 0; }
+      code { background: rgba(148,163,184,.2); padding: .1rem .35rem; border-radius: .25rem; font-size: .9em; }
+      footer { border-top: 1px solid #e2e8f0; margin-top: 3rem; padding-top: 1.5rem; }
+      .ad-slot { margin: 2rem 0; min-height: 1px; }
+      a { color: #1d4ed8; }
+      @media (prefers-color-scheme: dark) { a { color: #93c5fd; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>자리배치 도우미</h1>
+      <p class="lead">
+        나이스에서 내려받은 명렬표 엑셀을 그대로 올리면, 교실 자리 배치·2인 짝꿍·모둠 편성을
+        만들어 줍니다. 설치할 것도 가입할 것도 없습니다.
+      </p>
+
+      <a class="cta" href="./app/">앱 열기</a>
+      <p class="muted">무료 · 회원가입 없음 · 설치 없음</p>
+
+      <div class="card safe">
+        <strong>학생 정보는 이 컴퓨터를 벗어나지 않습니다.</strong>
+        <p style="margin:.5rem 0 0">
+          엑셀 읽기·자리 계산·이미지 저장이 전부 선생님의 브라우저 안에서 끝납니다.
+          서버도 데이터베이스도 없습니다. 이건 약속이 아니라
+          <a href="./app/">앱</a>의 보안 정책으로 막아 둔 것이고,
+          <a href="https://github.com" rel="noopener">실제로 측정한 감사 기록</a>도 함께 공개합니다.
+        </p>
+        <p class="muted" style="margin:.5rem 0 0">
+          이 소개 페이지에는 광고가 있을 수 있습니다. 앱 화면에는 광고가 없으며,
+          광고 스크립트가 학생 명단이 있는 화면에 들어가지 않도록 페이지를 분리해 두었습니다.
+        </p>
+      </div>
+
+      <!-- 광고 자리 1 -->
+      <div class="ad-slot"></div>
+
+      <h2>무엇을 할 수 있나요</h2>
+      <ul>
+        <li><strong>나이스 엑셀 그대로</strong> — 파일을 고칠 필요 없이 올리면 알아서 읽습니다</li>
+        <li><strong>모둠 편성</strong> — 25명을 6모둠으로 나누면 5·4·4·4·4·4 처럼 균등하게</li>
+        <li><strong>모둠 자리 배치</strong> — 모둠마다 책상 섬을 만들고 사이를 통로로 비웁니다</li>
+        <li><strong>지난 짝·지난 모둠원 피하기</strong> — 기록해 두면 다음 배치에서 참고합니다</li>
+        <li><strong>전출·자퇴·결석 제외</strong> — 명단에서 지우지 않고 배치에서만 뺍니다</li>
+        <li><strong>교사 관점 ↔ 학생 관점</strong> — 교탁에서 본 모습과 학생이 보는 모습 전환</li>
+        <li><strong>공개 모드</strong> — 프로젝터로 이름을 가렸다가 한 명씩 공개</li>
+        <li><strong>내보내기</strong> — PNG · PDF · 엑셀 · JSON · 인쇄</li>
+      </ul>
+
+      <h2>쓰는 순서</h2>
+      <ol>
+        <li><strong>명렬표 불러오기</strong> — 나이스 «교과시간별출석부»를 그대로 올립니다</li>
+        <li><strong>학생 명단</strong> — 전출·자퇴 학생을 «배치 제외»로 바꿉니다</li>
+        <li><strong>교실 만들기</strong> — 모둠 수만 고르면 책상 섬이 자동으로 만들어집니다</li>
+        <li><strong>조건 정하기</strong> — 없어도 됩니다. 필요한 것만 고르세요</li>
+        <li><strong>자리 만들기</strong> — 몇 초면 끝납니다</li>
+        <li><strong>결과 보기</strong> — 자리를 바꾸거나 공개 모드로 보여 주고, 저장합니다</li>
+      </ol>
+
+      <h2>자주 묻는 것</h2>
+
+      <h3>제 학교 명렬표도 읽나요?</h3>
+      <p>
+        고정된 셀 위치를 가정하지 않고 «번호»와 «성명» 글자를 찾아 표를 인식하므로, 학교마다
+        조금씩 다른 양식도 대부분 읽습니다. 자동 인식이 안 되면 헤더 줄과 열을 직접 고르는
+        화면으로 넘어갑니다.
+      </p>
+
+      <h3>학생 이름이 서버에 올라가나요?</h3>
+      <p>
+        아니요. 이 도구에는 서버가 없습니다. 브라우저에서 <kbd>F12</kbd> → Network 를 켜고
+        써 보시면 앱 파일 외에 아무 요청도 없는 것을 직접 확인하실 수 있습니다.
+        인터넷을 끊고도 그대로 동작합니다.
+      </p>
+
+      <h3>닫으면 명단이 사라지나요?</h3>
+      <p>
+        네, 기본값이 그렇습니다. 여러 선생님이 함께 쓰는 교무실 컴퓨터를 생각한 설정입니다.
+        설정에서 «이 브라우저에 저장»을 켜면 남길 수 있고, «모든 정보 삭제»로 한 번에 지울 수도 있습니다.
+      </p>
+
+      <h3>남녀를 섞어 앉히고 싶은데 성별 열이 없어요</h3>
+      <p>
+        명렬표는 보통 한 무리를 가나다순으로 적고 다음 무리를 다시 가나다순으로 적습니다.
+        그 순서가 되돌아가는 지점을 찾아 버튼 한 번으로 두 무리로 나눠 줍니다.
+        어느 쪽이 남학생인지는 알 수 없으므로 «구분1·구분2»로만 표시하고, 서로 바꾸기도 한 번에 됩니다.
+      </p>
+
+      <!-- 광고 자리 2 -->
+      <div class="ad-slot"></div>
+
+      <h2>안 되는 부분이 있으면</h2>
+      <p>
+        앱 오른쪽 위 <strong>«의견 보내기»</strong>를 눌러 주세요. 어느 화면에서 무엇을 하려다
+        그랬는지 알려 주시면 큰 도움이 됩니다.
+      </p>
+      <div class="card">
+        <strong>화면 사진을 보내실 때</strong>
+        <p style="margin:.5rem 0 0">
+          그냥 캡처하면 학생 이름이 그대로 찍힙니다. «의견 보내기» 안의
+          <strong>«이름 가린 화면 저장»</strong>을 쓰시면 배치 모양은 그대로 두고 이름만
+          학생01·학생02로 바꾼 그림을 만들어 드립니다. 그 파일을 첨부해 주세요.
+        </p>
+      </div>
+
+      <footer>
+        <p class="muted">
+          <a href="./app/">앱 열기</a> ·
+          <a href="./privacy.html">개인정보 처리방침</a>
+        </p>
+        <p class="muted">
+          교사가 쓰려고 만든 무료 도구입니다. 학생 개인정보를 다루는 도구인 만큼,
+          무엇이 어디에 저장되고 무엇이 저장되지 않는지 전부 공개합니다.
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

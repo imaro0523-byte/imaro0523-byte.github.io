@@ -2,6 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
 
 /**
  * Content-Security-Policy.
@@ -75,6 +80,10 @@ function cspPlugin(mode: string) {
 }
 
 export default defineConfig(({ mode }) => ({
+  define: {
+    // A version string for bug reports. Nothing about the build machine.
+    __APP_VERSION__: JSON.stringify(`${pkg.version} (${new Date().toISOString().slice(0, 10)})`),
+  },
   // Relative base so the same build works at a domain root and under a
   // GitHub Pages project subpath (https://user.github.io/seat-planner/).
   base: './',

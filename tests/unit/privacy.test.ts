@@ -10,6 +10,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import {
+  anonymizeGrouping,
+  anonymizeStudents,
+  describeForFeedback,
+} from '@/core/exportData/anonymize';
 import { buildBackup } from '@/core/exportData/toJson';
 import {
   findLeakedFields,
@@ -97,12 +102,16 @@ describe('no network access in application source', () => {
     expect(creators).toEqual(['src\\ui\\export\\download.ts: a'.replace(/\\/g, sep)]);
   });
 
-  it('contains no external http(s) URL, not even in a comment', () => {
+  it('contains no external http(s) URL outside the one link file', () => {
     // `import.meta.url` and the W3C SVG namespace are structural, not requests.
     const allowed = [/www\.w3\.org\/2000\/svg/, /schemas\.openxmlformats\.org/];
+    // Destinations a teacher clicks live in exactly one file, so that adding an
+    // address anywhere else is a test failure rather than a quiet change.
+    const linkFile = join('src', 'config', 'links.ts');
     const offenders: string[] = [];
 
     for (const file of files) {
+      if (file.endsWith(linkFile)) continue;
       const text = readFileSync(file, 'utf8');
       for (const match of text.matchAll(/https?:\/\/[^\s'"`)]+/g)) {
         const url = match[0];
@@ -113,6 +122,17 @@ describe('no network access in application source', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('gives outward links no query string, so nothing can ride along in one', () => {
+    const text = readFileSync(join(SRC, 'config', 'links.ts'), 'utf8');
+    const urls = [...text.matchAll(/'(https?:\/\/[^']*)'/g)].map((m) => m[1] as string);
+    for (const url of urls) {
+      // A link carrying `?d=…` would be an egress channel wearing a link's
+      // clothing. Bare addresses only.
+      expect(url, `${url} 에 쿼리스트링이 있습니다`).not.toContain('?');
+      expect(url, `${url} 에 조각 식별자가 있습니다`).not.toContain('#');
+    }
   });
 
   it('loads no external font or stylesheet', () => {
@@ -482,5 +502,85 @@ describe('export redaction', () => {
       '설정',
       '과거배치용데이터',
     ]);
+  });
+});
+
+describe('feedback screenshots', () => {
+  const real: Student[] = makeStudents(5).map((student, i) => ({
+    ...student,
+    name: `진짜이름${i}`,
+    teacherMemo: 'MEMOLEAK1',
+    accessibilityNeeds: 'CARELEAK2',
+    excludeNote: 'EXCLLEAK3',
+    tags: ['TAGLEAK4'],
+    customFields: { 비고: 'CUSTOMLEAK5' },
+  }));
+
+  it('replaces every real name and drops every teacher-only field', () => {
+    const safe = anonymizeStudents(real);
+
+    expect(safe.map((s) => s.name)).toEqual([
+      '학생01',
+      '학생02',
+      '학생03',
+      '학생04',
+      '학생05',
+    ]);
+
+    const text = JSON.stringify(safe);
+    for (const leak of ['진짜이름', 'MEMOLEAK1', 'CARELEAK2', 'EXCLLEAK3', 'TAGLEAK4', 'CUSTOMLEAK5']) {
+      expect(text, `${leak} 가 익명화된 사본에 남아 있습니다`).not.toContain(leak);
+    }
+  });
+
+  it('keeps ids, numbers and status so the layout still reproduces the bug', () => {
+    const safe = anonymizeStudents(real);
+    expect(safe.map((s) => s.id)).toEqual(real.map((s) => s.id));
+    expect(safe.map((s) => s.number)).toEqual(real.map((s) => s.number));
+    expect(safe.map((s) => s.status)).toEqual(real.map((s) => s.status));
+  });
+
+  it('strips group names and roles, which can carry a real name too', () => {
+    const grouping: Grouping = {
+      excludedIds: [],
+      groups: [
+        {
+          id: 'g1',
+          index: 1,
+          colorIndex: 1,
+          name: '진짜이름0 모둠',
+          memberIds: [(real[0] as Student).id],
+          roles: { [(real[0] as Student).id]: '진짜이름0 발표' },
+          locked: false,
+        },
+      ],
+    };
+    const safe = anonymizeGrouping(grouping);
+    expect(JSON.stringify(safe)).not.toContain('진짜이름');
+    expect(safe?.groups[0]?.memberIds).toEqual(grouping.groups[0]?.memberIds);
+  });
+
+  it('puts no names into the diagnostic text', () => {
+    const text = describeForFeedback({
+      appVersion: '1.0.0',
+      screen: '결과 보기',
+      studentCount: 25,
+      excludedCount: 1,
+      classroom: '5줄 × 6칸',
+      seatCount: 30,
+      groups: '6모둠 (5, 4, 4, 4, 4, 4명)',
+      constraints: 3,
+      seed: 12345,
+      viewpoint: '교사 관점',
+    });
+    for (const leak of ['진짜이름', 'MEMOLEAK1', 'CARELEAK2']) {
+      expect(text).not.toContain(leak);
+    }
+    // The word 학생 appears in «학생 수: 25명»; what must not appear is a name,
+    // real or aliased, so the check is for an individual rather than the noun.
+    expect(text).not.toMatch(/학생\d{2}/);
+    // But it does carry what a maintainer needs.
+    expect(text).toContain('12345');
+    expect(text).toContain('6모둠');
   });
 });

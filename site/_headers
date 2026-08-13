@@ -1,19 +1,17 @@
 # Response headers for hosts that support them (Netlify, Cloudflare Pages).
+# GitHub Pages ignores this file entirely.
 #
-# GitHub Pages ignores this file — it cannot send custom headers at all — so on
-# GitHub Pages the policy is whatever the <meta> tag in index.html carries.
-# That covers most directives but NOT these two, which browsers are required to
-# ignore when they arrive in a meta tag:
-#
-#   frame-ancestors   stops another site from wrapping this app in an iframe
-#   X-Frame-Options   the older equivalent
-#
-# So on GitHub Pages this app can be framed by a hostile page. Everything the
-# app does still happens locally, but a framed copy could be dressed up to
-# mislead. If that matters for your deployment, host somewhere that can send
-# headers and this file will be used automatically.
+# The two paths get different policies on purpose.
 
+# The guide site. May carry advertising, so it cannot be default-deny — but it
+# never sees a class list, which is what makes that acceptable.
 /*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer-when-downgrade
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+
+# The app. No third-party anything, and no framing.
+/app/*
   Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; media-src 'none'; font-src 'none'; img-src data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; manifest-src 'self'; connect-src 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: {
     // Tests run against the production build, so the CSP and the service
     // worker under test are the ones users actually get.
-    command: 'npm run build && npx vite preview --port 4173 --host 127.0.0.1',
+    command: 'npm run build:app && npx vite preview --port 4173 --host 127.0.0.1',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

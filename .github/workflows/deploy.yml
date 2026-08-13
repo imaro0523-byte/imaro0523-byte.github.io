@@ -35,8 +35,8 @@ jobs:
       - name: 단위 테스트
         run: npm test
 
-      - name: 프로덕션 빌드
-        run: npx vite build
+      - name: 프로덕션 빌드 (앱)
+        run: npm run build:app
 
       - name: 브라우저 설치
         run: npx playwright install --with-deps chromium
@@ -44,6 +44,12 @@ jobs:
       # Asserts zero external network requests across the whole workflow.
       - name: 브라우저 흐름 테스트
         run: npm run test:e2e
+
+      # The published folder is assembled only after the tests have run against
+      # the app on its own, so a failing test cannot ship.
+      - name: 배포 폴더 조립 (소개 사이트 + 앱)
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: npx tsx scripts/build-site.ts
 
       - name: 빌드 결과 업로드
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

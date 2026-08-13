@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>개인정보 처리방침 — 자리배치 도우미</title>
+    <meta name="description" content="자리배치 도우미의 개인정보 처리방침. 학생 정보는 브라우저 밖으로 나가지 않습니다." />
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; line-height: 1.75; color: #0f172a; background: #f8fafc;
+        font-family: Pretendard, -apple-system, "Malgun Gothic", "맑은 고딕",
+          "Apple SD Gothic Neo", system-ui, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e2e8f0; background: #020617; }
+        .card { background: #0f172a !important; border-color: #1e293b !important; }
+        table, th, td { border-color: #1e293b !important; }
+        a { color: #93c5fd; }
+      }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+      h1 { font-size: 1.7rem; }
+      h2 { font-size: 1.15rem; margin-top: 2.25rem; }
+      table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+      th, td { border: 1px solid #e2e8f0; padding: .5rem .7rem; text-align: left; vertical-align: top; }
+      th { background: rgba(148,163,184,.15); }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem; padding: 1rem 1.25rem; margin: 1rem 0; }
+      a { color: #1d4ed8; }
+      .muted { color: #64748b; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>개인정보 처리방침</h1>
+      <p class="muted">최종 수정일: 2026-08-13</p>
+
+      <div class="card">
+        <strong>요약</strong>
+        <ul>
+          <li><strong>앱</strong>(<code>/app/</code>)은 학생 정보를 수집하지도 전송하지도 않습니다. 서버가 없습니다.</li>
+          <li><strong>이 소개 페이지</strong>는 광고를 실을 수 있으며, 그 경우 쿠키가 사용됩니다.</li>
+          <li>두 페이지는 <strong>일부러 분리</strong>되어 있습니다. 광고 스크립트는 학생 명단이 있는 화면에 들어가지 않습니다.</li>
+        </ul>
+      </div>
+
+      <h2>1. 앱에서 처리하는 정보</h2>
+      <p>
+        선생님이 올린 명렬표(이름·번호·학년·반)와 앱에서 입력한 내용(성별·구분·태그·교사 메모·
+        배려 사항)은 <strong>선생님의 브라우저 안에서만</strong> 처리됩니다. 이 도구에는 서버도
+        데이터베이스도 없어 전송할 곳 자체가 없습니다.
+      </p>
+      <table>
+        <tr><th>구분</th><th>내용</th></tr>
+        <tr><td>수집 주체</td><td>없음. 운영자는 어떤 학생 정보도 받지 않습니다</td></tr>
+        <tr><td>전송</td><td>없음. 브라우저 보안 정책(CSP)으로 통신 자체를 막아 두었습니다</td></tr>
+        <tr><td>보관 위치</td><td>기본은 메모리뿐. 새로고침하면 사라집니다</td></tr>
+        <tr><td>선택 보관</td><td>설정에서 켜고 «저장» 버튼을 눌렀을 때만 그 브라우저(IndexedDB)에 저장</td></tr>
+        <tr><td>삭제</td><td>설정 → «모든 정보 삭제». 삭제 후 실제로 지워졌는지 다시 확인해 결과를 표시</td></tr>
+        <tr><td>제3자 제공</td><td>없음</td></tr>
+      </table>
+      <p>
+        직접 확인하실 수 있습니다. 브라우저에서 <kbd>F12</kbd> → Network 를 켜고 명렬표를 올려
+        보세요. 앱 파일 외에 아무 요청도 없습니다. 인터넷을 끊고도 그대로 동작합니다.
+        자세한 근거는 저장소의 <code>PRIVACY.md</code>와 감사 보고서 <code>SECURITY_AUDIT.md</code>에 있습니다.
+      </p>
+
+      <h2>2. 이 소개 페이지의 광고와 쿠키</h2>
+      <p>
+        이 페이지(<code>/</code>)에는 Google AdSense 광고가 표시될 수 있습니다. 광고가 게재되는
+        경우 Google 및 협력사는 쿠키를 사용해 이 사이트나 다른 사이트 방문 기록을 바탕으로
+        광고를 제공할 수 있습니다.
+      </p>
+      <ul>
+        <li>
+          맞춤 광고는
+          <a href="https://www.google.com/settings/ads" rel="noopener noreferrer" target="_blank">Google 광고 설정</a>에서 끌 수 있습니다.
+        </li>
+        <li>
+          제3자 광고 차단은
+          <a href="https://www.aboutads.info/choices/" rel="noopener noreferrer" target="_blank">aboutads.info</a>에서 설정할 수 있습니다.
+        </li>
+      </ul>
+      <p>
+        <strong>광고는 이 소개 페이지에만 있습니다.</strong> 명렬표를 올리는 앱 화면에는 광고도
+        분석 도구도 없으며, 앱의 보안 정책이 외부 스크립트 로드를 아예 금지하기 때문에
+        실수로라도 들어갈 수 없습니다. 페이지를 나눈 이유가 이것입니다.
+      </p>
+
+      <h2>3. 내보낸 파일</h2>
+      <p>
+        앱에서 저장한 PNG·PDF·엑셀·JSON 파일에는 학생 이름이 평문으로 들어 있고 암호가 걸려 있지
+        않습니다. 이 파일들은 선생님의 컴퓨터에 저장되며, 이후 보관과 전달은 선생님이 관리하셔야
+        합니다. 파일 이름에는 학생 이름이 들어가지 않습니다.
+      </p>
+
+      <h2>4. 의견 보내기</h2>
+      <p>
+        앱의 «의견 보내기»는 외부 설문 페이지를 새 탭으로 열 뿐이며, 앱이 무엇을 자동으로
+        보내지는 않습니다. 보내실 내용은 선생님이 직접 고르십니다. 화면 사진을 보내실 때는
+        앱의 «이름 가린 화면 저장» 기능으로 <strong>학생 이름이 학생01·학생02로 바뀐 그림</strong>을
+        만들어 첨부해 주세요.
+      </p>
+
+      <h2>5. 문의</h2>
+      <p>앱의 «의견 보내기»를 이용해 주세요.</p>
+
+      <p class="muted" style="margin-top:2.5rem">
+        <a href="./">← 소개로</a> · <a href="./app/">앱 열기</a>
+      </p>
+    </div>
+  </body>
+</html>

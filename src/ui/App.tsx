@@ -8,6 +8,7 @@ import { RulesScreen } from './screens/RulesScreen';
 import { GenerateScreen } from './screens/GenerateScreen';
 import { ResultScreen } from './screens/ResultScreen';
 import { SettingsPanel } from './components/SettingsPanel';
+import { FeedbackPanel } from './components/FeedbackPanel';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { RedoIcon, SettingsIcon, UndoIcon } from './components/Icons';
 
@@ -32,6 +33,7 @@ export function App() {
   const futureLength = useAppStore((s) => s.future.length);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Theme is a display preference, so it is applied straight to the document.
   useEffect(() => {
@@ -131,6 +133,13 @@ export function App() {
             </button>
             <button
               type="button"
+              className="btn-ghost"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              의견 보내기
+            </button>
+            <button
+              type="button"
               className="btn-secondary"
               onClick={() => setSettingsOpen(true)}
               aria-label="설정"
@@ -151,6 +160,29 @@ export function App() {
           <PrivacyNotice compact />
         </div>
       </footer>
+
+      {feedbackOpen && (
+        <div
+          className="no-print fixed inset-0 z-50 flex justify-end bg-black/40"
+          onClick={() => setFeedbackOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-label="의견 보내기"
+            aria-modal="true"
+            className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">의견 보내기</h2>
+              <button type="button" className="btn-ghost" onClick={() => setFeedbackOpen(false)}>
+                닫기
+              </button>
+            </div>
+            <FeedbackPanel onClose={() => setFeedbackOpen(false)} />
+          </div>
+        </div>
+      )}
 
       {settingsOpen && (
         <div
