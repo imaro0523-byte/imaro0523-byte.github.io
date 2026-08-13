@@ -13,14 +13,20 @@
 | 프로젝트 | 자리배치 도우미 (Seat Planner) — 교실 자리·모둠 배치 웹앱 |
 | 저장소 경로 | `C:\Users\pc\dev\seat-planner` |
 | 현재 브랜치 | `master` |
-| 최신 commit hash | `4331f675b05c3c86dc1f764b6044298016261eca` (`4331f67`) |
-| 최신 커밋 제목 | 공개 배포 준비: 소개 사이트 분리, 피드백 창구, 광고 자리 |
+| 최신 commit hash | `6a129ce` (기록 시점) — **아래 주의 참조** |
+| 직전 기능 커밋 | `4331f675b05c3c86dc1f764b6044298016261eca` (`4331f67`) — **2절 이하 본문이 서술하는 코드 상태** |
 | working tree | **clean** (`git status --porcelain` 출력 없음) |
-| 총 커밋 수 | 11 |
+| 총 커밋 수 | 12 (본 문서 커밋 포함) |
 | 원격 저장소 | **없음** (`git remote -v` 비어 있음 — 아직 GitHub에 올리지 않음) |
-| 추적 파일 수 | 99 |
+| 추적 파일 수 | 100 (본 문서 포함) |
 | 코드 규모 | `src/` 10,982줄 · `tests/` 3,931줄 |
 | 프로젝트 단계 | **기능 완성 + 개인정보 감사 완료 + 배포 준비 완료. 실제 배포는 미수행** |
+
+> **해시에 관한 주의.** 이 문서 자체가 커밋되므로 기록된 해시는 저장되는 순간 한 칸 뒤처집니다.
+> 문서 수정 커밋이 더해지면 또 밀립니다. **해시는 참고용으로만 쓰고, 새 세션에서는 반드시
+> `git log -1 --oneline` 으로 실제 HEAD를 확인하십시오.** 코드 상태를 판단하는 기준은
+> 마지막 *기능* 커밋인 `4331f67` 이며, 그 이후 커밋은 문서 변경뿐입니다
+> (`git log --oneline 4331f67..HEAD` 로 확인 가능).
 
 ### 이번 세션의 주된 작업 목적
 
@@ -370,10 +376,29 @@
 | `npm test` | **192개 통과 / 0 실패** (8파일, 7.87초) |
 | `npx playwright test` | **28개 통과 / 0 실패** (1.2분, chromium) |
 
-### 단위 테스트 구성 (192개)
+### 단위 테스트 구성 (192개) — 파일별 실측
 
-excel 28 · partition 29 · solver 31 · layout 20 · history 21 · groupIslands 24 ·
-divisionSplit 24 · privacy 15+
+| 파일 | 개수 |
+| --- | --- |
+| `tests/unit/solver.test.ts` | 31 |
+| `tests/unit/excel.test.ts` | 28 |
+| `tests/unit/partition.test.ts` | 28 |
+| `tests/unit/groupIslands.test.ts` | 25 |
+| `tests/unit/divisionSplit.test.ts` | 24 |
+| `tests/unit/privacy.test.ts` | 24 |
+| `tests/unit/layout.test.ts` | 17 |
+| `tests/unit/history.test.ts` | 15 |
+| **합계** | **192** |
+
+### E2E 구성 (28개) — 파일별 실측
+
+| 파일 | 개수 |
+| --- | --- |
+| `tests/e2e/flow.spec.ts` | 18 |
+| `tests/e2e/privacy-audit.spec.ts` | 4 |
+| `tests/e2e/feedback.spec.ts` | 3 |
+| `tests/e2e/offline.spec.ts` | 3 |
+| **합계** | **28** |
 
 ### 개인정보 감사 결과 (E2E 자동)
 
@@ -598,6 +623,11 @@ npx tsx scripts/inspect-roster.ts "I:/내 드라이브/2025-26고림고/교과�
 - 실제 명렬표는 `I:\내 드라이브\2025-26고림고\교과업무\`에 있으며 **절대 커밋 금지**
 - 개발 중 이 파일들로 파서를 검증했고, 검증 스크립트는 **이름을 출력하지 않도록** 만들어져 있음
 - 사용자는 다른 교사들에게 공유할 계획이며 피드백을 받고 싶어 함
+- **피드백에 「스크린샷 첨부」를 명시적으로 요구했습니다.** 이 요구가
+  「이름 가린 화면 저장」(`src/core/exportData/anonymize.ts`) 기능의 유일한 발단입니다.
+  기능은 코드에 있지만 **왜 만들었는지는 대화에만 있었습니다** — 스크린샷이 곧 학급 명단이라
+  그냥 첨부하면 개인정보가 유출되기 때문입니다. 이 기능을 「부가 기능」으로 오해해
+  제거하지 마십시오
 
 ### 11-3. 판단 근거가 대화에만 있는 것
 
@@ -623,3 +653,41 @@ Chrome은 요청 이벤트를 올린 뒤 CSP로 실패시킵니다. `requestfini
 - Playwright·Vitest 원본 로그 (보존 안 함. 재실행으로 획득)
 - 감사 당시 「수정 전」 실측 원본 (요약만 `SECURITY_AUDIT.md` 15절에 존재)
 - 대화에서 논의만 하고 채택하지 않은 UI 시안들
+
+---
+
+## 12. 문서 자체 검증 기록
+
+이 문서는 작성 후 **저장소 실제 상태와 대조 검증**을 거쳤습니다 (2026-08-13).
+
+### 검증 방법
+
+| 항목 | 대조 대상 |
+| --- | --- |
+| 브랜치·커밋·working tree | `git rev-parse`, `git status --porcelain`, `git rev-list --count` |
+| 파일 수·코드 규모 | `git ls-files`, `wc -l` |
+| 언급한 파일 23개 실존 | 파일 단위 존재 확인 — 누락 0 |
+| 언급한 함수·상수 15개 실존 | 소스 grep — 누락 0 |
+| 상수 실제값 | `SEVERITY_WEIGHT`, `EFFORT_BUDGETS`, `LIMITS`, `BLANK_RUN_LIMIT` 원본 확인 |
+| 설정 기본값 | `DEFAULT_SETTINGS`, `DEFAULT_GENERATE`, `sourcemap`, `screenshot/video`, `links.ts` 원본 확인 |
+| 테스트 수 | `vitest run` 파일별 실행, `playwright test --list` |
+| 트레이딩 개념 부재 | 13개 용어 전수 grep — 유일 적중은 학생 재분배를 뜻하는 `rebalances` 한 단어 |
+| 민감정보 | 비밀번호·키·토큰·게시자ID·이메일 패턴 스캔 — 0건 |
+
+### 검증에서 수정한 것
+
+| 항목 | 기록했던 값 | 실제 값 |
+| --- | --- | --- |
+| 최신 commit hash | `4331f67` | `6a129ce` (문서 자신이 커밋되며 HEAD 이동) |
+| 총 커밋 수 | 11 | 12 |
+| 추적 파일 수 | 99 | 100 |
+| 단위 테스트 파일별 내역 | 기억에 의한 추정 | 파일별 실측표로 교체 |
+
+> **총계 192는 처음부터 정확했지만 파일별 내역이 틀렸습니다.** 실행 결과를 그대로 옮기지 않고
+> 기억으로 나눠 적은 탓입니다. 다음 세션도 개수를 인용할 때는 실행 출력을 근거로 삼으십시오.
+
+### 검증했으나 수정할 것이 없던 항목
+
+브랜치 · working tree clean · 언급 파일 전부 실존 · 상수값 일치 · 설정 기본값 일치 ·
+E2E 28개 일치 · 「미실행」 표기가 실제 미실행과 일치 · 트레이딩 안전장치 부재 기록 정확 ·
+민감정보 없음 · `dist`·`node_modules`·`test-results`를 자동 생성물로 올바르게 분류
