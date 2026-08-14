@@ -23,3 +23,10 @@ blob-report/
 *.csv
 !tests/**/*.generated.xlsx
 /private/
+
+# --------------------------------------------------------------------------
+# Local working notes. The session handoff records the author's school, the
+# subject they teach and absolute paths to real roster files — harmless on this
+# machine, identifying once the repository is public. Kept on disk, out of git.
+# --------------------------------------------------------------------------
+SESSION_HANDOFF.md
