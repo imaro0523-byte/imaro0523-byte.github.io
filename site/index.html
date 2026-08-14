@@ -46,6 +46,76 @@
       content="나이스 명렬표 엑셀을 그대로 올려 교실 자리, 2인 짝꿍, 모둠 편성을 만드는 무료 도구. 학생 정보는 브라우저 밖으로 나가지 않습니다."
     />
     <meta name="twitter:image" content="https://imaro0523-byte.github.io/og-image.png" />
+
+    <!--
+      Structured data.
+
+      Do not expect this to change how the page looks in Google. Google dropped
+      FAQ rich results entirely on 7 May 2026, having already restricted them to
+      government and health sites in 2023. The markup is here because it is still
+      valid schema.org and is still read by Bing and by the retrieval crawlers
+      behind AI answer engines, which is a real discovery path for a tool this
+      specific. If that ever stops being true, deleting these two blocks costs
+      nothing and breaks nothing.
+
+      Keep the answers in step with the visible FAQ below. Structured data that
+      disagrees with the page it describes is worse than none.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "자리배치 도우미",
+        "url": "https://imaro0523-byte.github.io/app/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "웹 브라우저",
+        "inLanguage": "ko",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+        "description": "나이스 명렬표 엑셀을 그대로 올려 교실 자리, 2인 짝꿍, 모둠 편성을 만드는 도구. 모든 처리가 브라우저 안에서 끝나며 학생 정보는 외부로 전송되지 않습니다."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "inLanguage": "ko",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "제 학교 명렬표도 읽나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "고정된 셀 위치를 가정하지 않고 «번호»와 «성명» 글자를 찾아 표를 인식하므로, 학교마다 조금씩 다른 양식도 대부분 읽습니다. 자동 인식이 안 되면 헤더 줄과 열을 직접 고르는 화면으로 넘어갑니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "학생 이름이 서버에 올라가나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "아니요. 이 도구에는 서버가 없습니다. 브라우저에서 F12 → Network 를 켜고 써 보시면 앱 파일 외에 아무 요청도 없는 것을 직접 확인하실 수 있습니다. 인터넷을 끊고도 그대로 동작합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "닫으면 명단이 사라지나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "네, 기본값이 그렇습니다. 여러 선생님이 함께 쓰는 교무실 컴퓨터를 생각한 설정입니다. 설정에서 «이 브라우저에 저장»을 켜면 남길 수 있고, «모든 정보 삭제»로 한 번에 지울 수도 있습니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "남녀를 섞어 앉히고 싶은데 성별 열이 없어요",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "명렬표는 보통 한 무리를 가나다순으로 적고 다음 무리를 다시 가나다순으로 적습니다. 그 순서가 되돌아가는 지점을 찾아 버튼 한 번으로 두 무리로 나눠 줍니다. 어느 쪽이 남학생인지는 알 수 없으므로 «구분1·구분2»로만 표시하고, 서로 바꾸기도 한 번에 됩니다."
+            }
+          }
+        ]
+      }
+    </script>
     <!--
       This is the guide site, and it is a separate page from the app on purpose.
 
