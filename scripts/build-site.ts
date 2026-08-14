@@ -14,6 +14,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -21,6 +22,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+
+// Build-time only. This never enters the application bundle, so it has no
+// bearing on the privacy invariants, which are rules about `src/`.
+import { marked } from 'marked';
 
 const ROOT = process.cwd();
 const DIST = join(ROOT, 'dist');
@@ -59,6 +64,272 @@ rmSync(STAGE, { recursive: true, force: true });
 // so hosts that read it apply the policy to every path.
 const appHeaders = join(APP, '_headers');
 if (existsSync(appHeaders)) rmSync(appHeaders);
+
+// ─── Articles ────────────────────────────────────────────────────────────
+//
+// Sources live in `content/guide/*.md`, outside `site/`, so that markdown never
+// lands in the published folder. Each file carries a small front matter block
+// and the build supplies everything else: the head, the preview tags, the
+// breadcrumb, the structured data and the entry in the listing. An author who
+// forgets one of those cannot ship a page missing it, because they never write
+// them in the first place.
+
+interface Article {
+  slug: string;
+  title: string;
+  description: string;
+  date: string;
+  updated?: string;
+  bodyHtml: string;
+}
+
+const CONTENT = join(ROOT, 'content', 'guide');
+const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function readArticles(): Article[] {
+  if (!existsSync(CONTENT)) return [];
+
+  const articles: Article[] = [];
+
+  for (const name of readdirSync(CONTENT)) {
+    if (!name.endsWith('.md')) continue;
+
+    const raw = readFileSync(join(CONTENT, name), 'utf8');
+    const matched = FRONT_MATTER.exec(raw);
+    if (!matched) {
+      console.error(`${name}: 앞머리(---)가 없습니다. 건너뜁니다.`);
+      continue;
+    }
+
+    const fields: Record<string, string> = {};
+    for (const line of (matched[1] ?? '').split(/\r?\n/)) {
+      const at = line.indexOf(':');
+      if (at > 0) fields[line.slice(0, at).trim()] = line.slice(at + 1).trim();
+    }
+
+    // A draft stays out of the published folder entirely, which also keeps it
+    // out of the listing and the sitemap. Nothing half-written gets indexed.
+    if (fields.draft === 'true') continue;
+
+    const missing = ['title', 'description', 'date'].filter((key) => !fields[key]);
+    if (missing.length > 0) {
+      console.error(`${name}: ${missing.join(', ')} 가 없습니다. 건너뜁니다.`);
+      continue;
+    }
+
+    articles.push({
+      slug: name.replace(/\.md$/, ''),
+      title: fields.title as string,
+      description: fields.description as string,
+      date: fields.date as string,
+      updated: fields.updated,
+      bodyHtml: marked.parse(raw.slice(matched[0].length), { async: false }),
+    });
+  }
+
+  // Newest first, which is also the order the listing wants.
+  return articles.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** One article page. `up` is the relative path back to the site root. */
+function articlePage(article: Article): string {
+  const url = `${ORIGIN}/guide/${article.slug}/`;
+  const title = escapeHtml(article.title);
+  const description = escapeHtml(article.description);
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: article.description,
+    datePublished: article.date,
+    dateModified: article.updated ?? article.date,
+    inLanguage: 'ko',
+    mainEntityOfPage: url,
+    image: `${ORIGIN}/og-image.png`,
+    // Deliberately not a personal name: the author's identity is kept out of
+    // the public repository, and the same choice applies to the pages.
+    author: { '@type': 'Organization', name: '자리배치 도우미' },
+    publisher: { '@type': 'Organization', name: '자리배치 도우미' },
+  };
+
+  const crumbs = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '자리배치 도우미', item: `${ORIGIN}/` },
+      { '@type': 'ListItem', position: 2, name: '읽을거리', item: `${ORIGIN}/guide/` },
+      { '@type': 'ListItem', position: 3, name: article.title, item: url },
+    ],
+  };
+
+  return `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${title} — 자리배치 도우미</title>
+    <meta name="description" content="${description}" />
+    <link rel="canonical" href="${url}" />
+    <link rel="stylesheet" href="../../style.css" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="자리배치 도우미" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:url" content="${url}" />
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:image" content="${ORIGIN}/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title}" />
+    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${ORIGIN}/og-image.png" />
+    <script type="application/ld+json">
+${JSON.stringify(jsonLd, null, 2)}
+    </script>
+    <script type="application/ld+json">
+${JSON.stringify(crumbs, null, 2)}
+    </script>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="crumbs">
+        <a href="../../">자리배치 도우미</a> · <a href="../">읽을거리</a>
+      </p>
+
+      <h1>${title}</h1>
+      <p class="dateline">${article.date}${
+        article.updated ? ` 작성 · ${article.updated} 수정` : ''
+      }</p>
+
+      <div class="ad-slot"></div>
+
+      <article>
+${article.bodyHtml}
+      </article>
+
+      <div class="card">
+        <strong>자리배치 도우미로 해 보기</strong>
+        <p style="margin:.5rem 0 0">
+          나이스 명렬표를 그대로 올리면 자리·짝꿍·모둠을 만들어 줍니다.
+          학생 정보는 브라우저 밖으로 나가지 않습니다.
+        </p>
+        <a class="cta" href="../../app/">앱 열기</a>
+      </div>
+
+      <div class="ad-slot"></div>
+
+      <footer class="muted">
+        <a href="../">읽을거리 목록</a> · <a href="../../">소개</a> ·
+        <a href="../../privacy.html">개인정보 처리방침</a>
+      </footer>
+    </div>
+  </body>
+</html>
+`;
+}
+
+/** The listing at /guide/. */
+function guideIndexPage(articles: Article[]): string {
+  const url = `${ORIGIN}/guide/`;
+  const description = '교실 자리 배치와 모둠 편성에 관해 현직 교사가 쓴 글 모음입니다.';
+
+  const items = articles
+    .map(
+      (a) => `        <li>
+          <h2><a href="./${a.slug}/">${escapeHtml(a.title)}</a></h2>
+          <p class="muted">${a.date}</p>
+          <p>${escapeHtml(a.description)}</p>
+        </li>`,
+    )
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>읽을거리 — 자리배치 도우미</title>
+    <meta name="description" content="${description}" />
+    <link rel="canonical" href="${url}" />
+    <link rel="stylesheet" href="../style.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="자리배치 도우미" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:url" content="${url}" />
+    <meta property="og:title" content="읽을거리 — 자리배치 도우미" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:image" content="${ORIGIN}/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${ORIGIN}/og-image.png" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="crumbs"><a href="../">자리배치 도우미</a></p>
+
+      <h1>읽을거리</h1>
+      <p class="lead">${description}</p>
+
+      <div class="ad-slot"></div>
+
+      <ul class="posts">
+${items}
+      </ul>
+
+      <footer class="muted">
+        <a href="../">소개</a> · <a href="../app/">앱 열기</a> ·
+        <a href="../privacy.html">개인정보 처리방침</a>
+      </footer>
+    </div>
+  </body>
+</html>
+`;
+}
+
+const articles = readArticles();
+
+if (articles.length > 0) {
+  const guideDir = join(DIST, 'guide');
+  mkdirSync(guideDir, { recursive: true });
+  writeFileSync(join(guideDir, 'index.html'), guideIndexPage(articles), 'utf8');
+
+  for (const article of articles) {
+    const dir = join(guideDir, article.slug);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'index.html'), articlePage(article), 'utf8');
+  }
+}
+
+// The guide is only worth linking to once something is in it. An empty section
+// on the front page would be worse than no section at all.
+const indexPath = join(DIST, 'index.html');
+writeFileSync(
+  indexPath,
+  readFileSync(indexPath, 'utf8').replace(
+    '<!--GUIDE_LINK-->',
+    articles.length === 0
+      ? ''
+      : `<h2>읽을거리</h2>
+      <p>자리 배치와 모둠 편성을 어떻게 정할지에 관한 글을 모았습니다.</p>
+      <ul>
+${articles
+  .slice(0, 5)
+  .map((a) => `        <li><a href="./guide/${a.slug}/">${escapeHtml(a.title)}</a></li>`)
+  .join('\n')}
+      </ul>
+      <p><a href="./guide/">글 전체 보기 →</a></p>`,
+  ),
+  'utf8',
+);
 
 /**
  * Every page in the published folder, as {url, lastmod}.
