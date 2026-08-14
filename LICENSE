@@ -1,0 +1,59 @@
+저작권 (c) 2026 imaro0523-byte — 모든 권리 보유
+Copyright (c) 2026 imaro0523-byte — All rights reserved
+
+────────────────────────────────────────────────────────────────────────
+왜 소스를 공개하면서 이용은 제한하는가
+────────────────────────────────────────────────────────────────────────
+
+이 앱은 학생 명단을 다룹니다. 그래서 «학생 정보가 브라우저 밖으로 나가지
+않는다»는 주장을 누구나 직접 확인할 수 있어야 한다고 판단했고, 그 확인이
+가능하도록 소스를 공개합니다.
+
+공개의 목적은 검증이지 자유로운 재사용 허가가 아닙니다. 이 저장소는
+오픈소스가 아니라 «소스 공개(source available)» 소프트웨어입니다.
+
+
+■ 허용하는 것
+
+  · 열람, 내려받기, 읽기
+  · 개인정보·보안 주장을 검증하기 위한 로컬 빌드와 실행
+  · 출처를 밝힌 인용과 링크
+  · 버그 보고, 개선 제안, Pull Request
+
+■ 저작권자의 사전 서면 동의 없이 금지하는 것
+
+  · 재배포 및 공개 호스팅 (원본이든 수정본이든)
+  · 상업적 이용
+  · 2차적 저작물의 배포
+
+문의는 이 저장소의 Issues 를 이용해 주십시오.
+
+
+■ 보증의 부인
+
+이 소프트웨어는 어떠한 종류의 보증도 없이 «있는 그대로» 제공됩니다.
+저작권자는 이 소프트웨어의 사용으로 발생하는 어떠한 손해에 대해서도
+책임지지 않습니다. 배치 결과의 적절성을 판단할 책임은 사용자에게 있습니다.
+
+
+────────────────────────────────────────────────────────────────────────
+English summary
+────────────────────────────────────────────────────────────────────────
+
+This is source-available software, not open source.
+
+The source is published so that anyone can verify the claim that student data
+never leaves the browser. Verification is the purpose of publication; it is not
+a grant of reuse.
+
+PERMITTED: viewing, downloading, building and running locally for the purpose
+of privacy or security verification, quoting with attribution, and submitting
+bug reports or pull requests.
+
+PROHIBITED without prior written permission from the copyright holder:
+redistribution or public hosting (modified or unmodified), commercial use, and
+distribution of derivative works.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.

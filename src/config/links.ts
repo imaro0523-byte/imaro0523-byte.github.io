@@ -29,7 +29,7 @@ export const FEEDBACK_FORM = '';
  * plain HTML and links to the repository directly. Kept as the single declared
  * place for the address, so a future in-app link has somewhere to read it from.
  */
-export const PROJECT_HOME = 'https://github.com/imaro0523-byte/seat-planner';
+export const PROJECT_HOME = 'https://github.com/imaro0523-byte/imaro0523-byte.github.io';
 
 export function hasFeedbackForm(): boolean {
   return FEEDBACK_FORM.trim() !== '';
