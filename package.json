@@ -13,7 +13,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "typecheck": "tsc --noEmit",
-    "fixtures": "tsx scripts/make-fixtures.ts",
+    "inspect": "tsx scripts/inspect-roster.ts",
     "build:app": "vite build"
   },
   "dependencies": {

@@ -3,8 +3,9 @@
  *
  *   npm run inspect -- "C:/path/to/1-1반 명렬표.xlsx"
  *
- * Prints structure only. Student names are replaced with `<이름N자>` so the
- * output can be pasted into a bug report without leaking personal data.
+ * Prints structure only. Student names — and the teacher’s own name in the title
+ * block — are replaced with `<이름N자>` so the output can be pasted into a bug
+ * report without leaking personal data.
  */
 
 import { readFileSync } from 'node:fs';
@@ -14,6 +15,7 @@ import { findRosters } from '../src/core/excel/importRoster';
 import { detectHeaderRows } from '../src/core/excel/detectHeader';
 import { readCsvGrid, readWorkbookGrids } from '../src/core/excel/readWorkbook';
 import type { SheetGrid } from '../src/core/excel/grid';
+import type { RosterMeta } from '../src/core/model/types';
 
 const target = process.argv[2];
 if (!target) {
@@ -50,7 +52,7 @@ for (const roster of rosters) {
   console.log(`\n[${roster.label}]`);
   console.log(`  헤더 행: ${roster.header.rowIndex + 1}행 (점수 ${roster.header.score})`);
   console.log(`  열 매핑: ${JSON.stringify(roster.header.mapping)}`);
-  console.log(`  메타: ${JSON.stringify(roster.meta)}`);
+  console.log(`  메타: ${JSON.stringify(maskMeta(roster.meta))}`);
   console.log(`  학생 수: ${roster.students.length}`);
   console.log(`  번호: ${roster.students.map((s) => s.number ?? '?').join(', ')}`);
   // Names are deliberately reduced to a length, never printed.
@@ -63,6 +65,17 @@ for (const roster of rosters) {
   } else {
     console.log('  경고 없음');
   }
+}
+
+/**
+ * The title block carries the teacher’s own name. A bug report needs to know the
+ * field was *found*, not what it said, so it is reduced to a length the same way
+ * student names are.
+ */
+function maskMeta(meta: RosterMeta): RosterMeta {
+  if (meta.teacherName === undefined) return meta;
+  const length = meta.teacherName.replace(/\s/g, '').length;
+  return { ...meta, teacherName: `<이름${length}자>` };
 }
 
 function tally(values: number[]): Record<string, number> {
