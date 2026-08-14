@@ -24,8 +24,12 @@
 /** Google Form for bug reports and feature requests. Empty until configured. */
 export const FEEDBACK_FORM = '';
 
-/** Project home, shown on the guide site. Empty hides the link. */
-export const PROJECT_HOME = '';
+/**
+ * Project home. Nothing in the application reads this yet — the guide site is
+ * plain HTML and links to the repository directly. Kept as the single declared
+ * place for the address, so a future in-app link has somewhere to read it from.
+ */
+export const PROJECT_HOME = 'https://github.com/imaro0523-byte/seat-planner';
 
 export function hasFeedbackForm(): boolean {
   return FEEDBACK_FORM.trim() !== '';
