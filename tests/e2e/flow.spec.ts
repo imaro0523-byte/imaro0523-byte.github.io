@@ -142,6 +142,39 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await expect(page.getByText('아직 나누지 않았습니다')).toBeVisible();
   });
 
+  test('구분 예시 명단은 실제 명렬표처럼 두 무리로 나뉜다', async ({ page }) => {
+    // The second sample exists so the feature can be demonstrated without a
+    // real roster. Its whole purpose is to have the boundary the first sample
+    // deliberately lacks, so that property is worth pinning down.
+    await page.goto('/');
+    await page.getByRole('button', { name: '구분이 나뉘는 예시 명단' }).click();
+    await expect(page.getByRole('heading', { name: '학생 명단' })).toBeVisible();
+
+    await page.getByRole('button', { name: '이름 순서로 구분 나누기' }).click();
+    await expect(page.getByText('구분1 13명 · 구분2 12명', { exact: true })).toBeVisible();
+
+    const divisions = await page.getByLabel('구분').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLSelectElement).value),
+    );
+    expect(divisions.slice(0, 13).every((v) => v === 'a')).toBe(true);
+    expect(divisions.slice(13).every((v) => v === 'b')).toBe(true);
+
+    // Reading the ordering must never be turned into a claim about gender.
+    const genders = await page.getByLabel('성별').evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLSelectElement).value),
+    );
+    expect(new Set(genders)).toEqual(new Set(['unset']));
+  });
+
+  test('앱에서 소개 페이지로 돌아가는 링크가 있다', async ({ page }) => {
+    await page.goto('/');
+    const back = page.getByRole('link', { name: '← 소개 페이지로' });
+    await expect(back).toBeVisible();
+    // Relative, so the same build works at a domain root, under a project
+    // subpath and in a local preview. An absolute address would break two.
+    await expect(back).toHaveAttribute('href', '../');
+  });
+
   test('교실 화면에서 6모둠을 만들면 섬 6개가 그려진다', async ({ page }) => {
     await loadSample(page);
     await page.getByRole('button', { name: '3. 교실 만들기' }).click();

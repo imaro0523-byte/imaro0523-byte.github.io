@@ -11,7 +11,7 @@ import { findRosters, parseWithManualMapping, type RosterCandidate } from '@/cor
 import type { SheetGrid } from '@/core/excel/grid';
 import { readCsvGrid, readWorkbookGrids, WorkbookReadError } from '@/core/excel/readWorkbook';
 import { normalizeCell } from '@/core/model/normalize';
-import { buildNeisSample } from '@/lib/sample';
+import { buildDividedSample, buildNeisSample } from '@/lib/sample';
 import { safeErrorMessage } from '@/lib/log';
 import { useAppStore } from '@/store/useAppStore';
 import { PrivacyNotice } from '../components/PrivacyNotice';
@@ -156,18 +156,34 @@ export function ImportScreen() {
           </div>
 
           <div className="text-center">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                const sample = buildNeisSample();
-                loadRoster(sample.students, sample.meta);
-              }}
-            >
-              샘플 명단으로 먼저 체험해 보기
-            </button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  const sample = buildNeisSample();
+                  loadRoster(sample.students, sample.meta);
+                }}
+              >
+                샘플 명단으로 먼저 체험해 보기
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  const sample = buildDividedSample();
+                  loadRoster(sample.students, sample.meta);
+                }}
+              >
+                구분이 나뉘는 예시 명단
+              </button>
+            </div>
             <p className="mt-1.5 text-xs text-slate-500">
               «학생01»~«학생25»로 만든 가짜 명단입니다. 실제 학생 정보가 아닙니다.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              두 번째 명단은 이름이 가나다순으로 두 번 도는 실제 명렬표 모양이라,
+              «이름 순서로 구분 나누기»가 어떻게 동작하는지 볼 수 있습니다.
             </p>
           </div>
         </>

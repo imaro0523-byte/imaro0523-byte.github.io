@@ -156,8 +156,23 @@ export function App() {
       </main>
 
       <footer className="no-print border-t border-slate-200 px-4 py-3 dark:border-slate-700">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
           <PrivacyNotice compact />
+          {/*
+            Back to the guide site, which sits one level up from /app/.
+
+            A relative path, never an absolute address: the app has to keep
+            working from a domain root, a project subpath or a local preview,
+            and only a relative link does all three. It lives in the footer
+            rather than the header on purpose — a misclick up there would throw
+            away a roster that, by design, is not saved anywhere.
+          */}
+          <a
+            href="../"
+            className="shrink-0 text-xs text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
+          >
+            ← 소개 페이지로
+          </a>
         </div>
       </footer>
 
