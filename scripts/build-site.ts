@@ -102,7 +102,10 @@ function readArticles(): Article[] {
   for (const name of readdirSync(CONTENT)) {
     if (!name.endsWith('.md')) continue;
 
-    const raw = readFileSync(join(CONTENT, name), 'utf8');
+    // Strip a byte order mark before anything looks at the first character.
+    // Windows editors add one routinely, and without this the front matter
+    // silently fails to match — the article just vanishes from the build.
+    const raw = readFileSync(join(CONTENT, name), 'utf8').replace(/^﻿/, '');
     const matched = FRONT_MATTER.exec(raw);
     if (!matched) {
       console.error(`${name}: 앞머리(---)가 없습니다. 건너뜁니다.`);
