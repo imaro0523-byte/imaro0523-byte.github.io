@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { createClassroom, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
+import { createClassroom, divisionColumns, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS } from '@/core/model/types';
@@ -37,18 +37,45 @@ interface Template {
 
 const TEMPLATES: Template[] = [
   {
-    key: 'pairs',
+    key: 'pairs3',
     name: '2인 책상 3분단',
-    description: '가장 흔한 교실. 두 명씩 앉고 분단 사이에 통로가 있습니다.',
+    description: '가장 흔한 교실. 두 명씩 앉고 분단 사이에 통로가 있습니다. 30자리',
     rows: 5,
-    cols: 7,
     pairDesks: true,
-    aisleCols: [2, 5],
+    ...divisionColumns(3),
+  },
+  {
+    key: 'pairs2',
+    name: '2인 책상 2분단',
+    description: '인원이 적은 학급이나 좁은 교실. 20자리',
+    rows: 5,
+    pairDesks: true,
+    ...divisionColumns(2),
+  },
+  {
+    key: 'pairs4',
+    name: '2인 책상 4분단',
+    description: '인원이 많은 학급. 40자리',
+    rows: 5,
+    pairDesks: true,
+    ...divisionColumns(4),
+  },
+  {
+    key: 'exam',
+    // Desks pulled apart, one student each, with an aisle between every column
+    // so nobody sits within reach of a neighbour. Pair it with «번호순으로
+    // 앉히기» on the next screen for a room a teacher can walk with a roster.
+    name: '시험 대형',
+    description: '책상을 하나씩 띄워 놓습니다. 번호순으로 앉히기와 함께 쓰세요. 30자리',
+    rows: 5,
+    pairDesks: false,
+    cols: 11,
+    aisleCols: [1, 3, 5, 7, 9],
   },
   {
     key: 'plain',
     name: '한 명씩 5줄 6칸',
-    description: '시험이나 개별 활동에 쓰기 좋은 단순한 격자입니다.',
+    description: '통로 없이 한 명씩 앉는 단순한 격자입니다. 30자리',
     rows: 5,
     cols: 6,
     pairDesks: false,
@@ -58,10 +85,12 @@ const TEMPLATES: Template[] = [
   // produces real islands sized to the class.
   {
     key: 'wide',
-    name: '넓은 교실 6줄 7칸',
-    description: '인원이 많은 학급용입니다.',
+    name: '넓은 교실 6줄 8칸',
+    // Eight, not seven: with pairing an odd column count always leaves one
+    // student at a single desk on the end of every row.
+    description: '줄이 하나 더 있는 넓은 교실. 48자리',
     rows: 6,
-    cols: 7,
+    cols: 8,
     pairDesks: true,
   },
 ];

@@ -22,6 +22,7 @@ import {
   islandCapacityList,
   sameSizeMultiset,
 } from '@/core/layout/groupIslands';
+import { assignInNumberOrder } from '@/core/layout/numberOrder';
 import { EFFORT_LABELS, type Effort, type SeatingCandidate } from '@/core/solver/seating';
 import type { GroupingCandidate } from '@/core/solver/grouping';
 import { runGrouping, runSeating } from '@/lib/solverClient';
@@ -83,6 +84,23 @@ export function GenerateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [seatCandidates, setSeatCandidates] = useState<SeatingCandidate[]>([]);
   const [groupCandidates, setGroupCandidates] = useState<GroupingCandidate[]>([]);
+
+  /**
+   * Exam seating: attendance order, no constraints, no seed. Kept out of
+   * `generate()` because it shares nothing with it — no worker, no candidates,
+   * no scoring. It writes an arrangement and moves on.
+   */
+  const seatInNumberOrder = () => {
+    const { assignment: seated, unseated } = assignInNumberOrder(classroom, students);
+    setAssignment(seated);
+    setError(
+      unseated.length === 0
+        ? null
+        : `자리가 모자라 ${unseated.length}명이 앉지 못했습니다. 교실 크기를 늘려 주세요.`,
+    );
+    setStep('result');
+  };
+
 
   const active = students.filter((s) => s.status === 'active');
   const total = active.length;
@@ -529,6 +547,22 @@ export function GenerateScreen() {
         >
           <ShuffleIcon />
           {running ? '만드는 중…' : '자리 만들기'}
+        </button>
+        {/*
+          Deliberately not disabled by `blocking`. Those diagnoses are about
+          constraints the solver cannot satisfy, and this path satisfies no
+          constraints by design — an exam room is meant to be predictable, not
+          optimal. Refusing it because «떼어놓기» is impossible would withhold
+          the one arrangement that never needed it.
+        */}
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={seatInNumberOrder}
+          disabled={running || total === 0}
+          title="조건을 적용하지 않고 출석번호 순서대로 앉힙니다."
+        >
+          번호순으로 앉히기
         </button>
         {blocking.length > 0 && (
           <span className="text-xs text-red-600 dark:text-red-400">

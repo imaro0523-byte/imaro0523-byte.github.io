@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildAdjacency, partnerPairs, seatDistance } from '@/core/layout/adjacency';
-import { addColumn, addRow, createClassroom, seatAt, seatsOf } from '@/core/layout/grid';
+import { addColumn, addRow, createClassroom, divisionColumns, seatAt, seatsOf } from '@/core/layout/grid';
+import { assignInNumberOrder } from '@/core/layout/numberOrder';
 import {
   boardPlacement,
   fromDisplay,
@@ -10,7 +11,8 @@ import {
   toDisplay,
   windowPlacement,
 } from '@/core/layout/viewpoint';
-import type { SeatAssignment } from '@/core/model/types';
+import type { SeatAssignment, Student } from '@/core/model/types';
+import { makeStudents } from '../support/students';
 
 describe('viewpoint', () => {
   const rows = 5;
@@ -147,5 +149,105 @@ describe('adjacency', () => {
     const partners = partnerPairs(paired, assignment);
     expect(partners['a']).toBe('b');
     expect(partners['b']).toBe('a');
+  });
+});
+
+describe('분단 columns', () => {
+  /**
+   * The template that started this: «2인 책상 3분단» was written by hand as
+   * seven columns with aisles at 2 and 5, which produced 0,1 · 3,4 · 6 — the
+   * third 분단 one column wide. The room disagreed with its own label.
+   */
+  it('gives every 분단 exactly two seat columns', () => {
+    for (const count of [2, 3, 4, 5]) {
+      const { cols, aisleCols } = divisionColumns(count);
+      const classroom = createClassroom({ rows: 5, cols, aisleCols, pairDesks: true });
+
+      const front = seatsOf(classroom).filter((seat) => seat.row === 0);
+      expect(front).toHaveLength(count * 2);
+
+      // Walk the front row and count the width of each run between aisles.
+      const widths: number[] = [];
+      let run = 0;
+      for (let col = 0; col < cols; col += 1) {
+        if (aisleCols.includes(col)) {
+          widths.push(run);
+          run = 0;
+        } else {
+          run += 1;
+        }
+      }
+      widths.push(run);
+      expect(widths).toEqual(Array.from({ length: count }, () => 2));
+    }
+  });
+
+  it('pairs both seats of every 분단 into one desk', () => {
+    const { cols, aisleCols } = divisionColumns(3);
+    const classroom = createClassroom({ rows: 5, cols, aisleCols, pairDesks: true });
+
+    const deskSizes = new Map<string, number>();
+    for (const seat of seatsOf(classroom)) {
+      const id = seat.deskId as string;
+      deskSizes.set(id, (deskSizes.get(id) ?? 0) + 1);
+    }
+    // Fifteen desks of two. Nobody sitting alone at the end of a 분단.
+    expect([...deskSizes.values()]).toEqual(Array.from({ length: 15 }, () => 2));
+  });
+});
+
+describe('번호순 배치', () => {
+  const examRoom = () =>
+    createClassroom({ rows: 5, cols: 11, aisleCols: [1, 3, 5, 7, 9], pairDesks: false });
+
+  it('fills the room front to back in attendance order', () => {
+    const classroom = examRoom();
+    const students = makeStudents(30);
+    const { assignment, unseated } = assignInNumberOrder(classroom, students);
+
+    expect(unseated).toEqual([]);
+
+    const ordered = seatsOf(classroom).sort((a, b) =>
+      a.row !== b.row ? a.row - b.row : a.col - b.col,
+    );
+    // 1번 nearest the board on the far left, then along the row.
+    expect(assignment[ordered[0]!.id]).toBe(students[0]!.id);
+    expect(assignment[ordered[5]!.id]).toBe(students[5]!.id);
+    expect(assignment[ordered[6]!.id]).toBe(students[6]!.id);
+    expect(assignment[ordered[29]!.id]).toBe(students[29]!.id);
+  });
+
+  it('is reproducible without a seed, unlike every other path', () => {
+    const classroom = examRoom();
+    const students = makeStudents(20);
+    expect(assignInNumberOrder(classroom, students).assignment).toEqual(
+      assignInNumberOrder(classroom, students).assignment,
+    );
+  });
+
+  it('skips students who are not being placed', () => {
+    const classroom = examRoom();
+    const students = makeStudents(5);
+    students[1] = { ...(students[1] as Student), status: 'transferOut' };
+
+    const { assignment } = assignInNumberOrder(classroom, students);
+    const seated = Object.values(assignment);
+
+    expect(seated).toHaveLength(4);
+    expect(seated).not.toContain(students[1]!.id);
+    // The gap closes: 3번 moves up into the seat 2번 would have taken.
+    const ordered = seatsOf(classroom).sort((a, b) =>
+      a.row !== b.row ? a.row - b.row : a.col - b.col,
+    );
+    expect(assignment[ordered[1]!.id]).toBe(students[2]!.id);
+  });
+
+  it('reports the students a small room could not seat', () => {
+    const classroom = createClassroom({ rows: 1, cols: 3, pairDesks: false });
+    const students = makeStudents(10);
+    const { assignment, unseated } = assignInNumberOrder(classroom, students);
+
+    expect(Object.keys(assignment)).toHaveLength(3);
+    expect(unseated.map((s) => s.name)).toEqual(students.slice(3).map((s) => s.name));
   });
 });

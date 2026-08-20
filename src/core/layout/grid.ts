@@ -56,6 +56,25 @@ export function zonesFor(
   return zones;
 }
 
+/**
+ * Column count and aisle positions for a room of `count` 분단.
+ *
+ * A 분단 is two columns wide — that is what makes it a row of two-person desks
+ * rather than a file of single ones — so `n` of them need `2n` seat columns
+ * plus the `n - 1` aisles between them: `3n - 1` columns in all.
+ *
+ * This exists because the 3분단 template was once written by hand as seven
+ * columns with aisles at 2 and 5. That leaves seat columns 0,1 · 3,4 · 6: the
+ * third 분단 one column wide, its students sitting alone while the label said
+ * three 분단. Deriving the numbers from the count is what keeps the room and
+ * its name in agreement.
+ */
+export function divisionColumns(count: number): { cols: number; aisleCols: number[] } {
+  const aisleCols: number[] = [];
+  for (let i = 1; i < count; i += 1) aisleCols.push(i * 3 - 1);
+  return { cols: count * 3 - 1, aisleCols };
+}
+
 export function createClassroom(options: GridOptions): Classroom {
   const rows = clampGridSize(options.rows, MAX_ROWS);
   const cols = clampGridSize(options.cols, MAX_COLS);
