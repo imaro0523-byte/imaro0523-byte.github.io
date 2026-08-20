@@ -167,10 +167,7 @@ export function App() {
             rather than the header on purpose — a misclick up there would throw
             away a roster that, by design, is not saved anywhere.
           */}
-          <a
-            href="../"
-            className="shrink-0 text-xs text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
-          >
+          <a href="../" className="btn-secondary shrink-0">
             ← 소개 페이지로
           </a>
         </div>

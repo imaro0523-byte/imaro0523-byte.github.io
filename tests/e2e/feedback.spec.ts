@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { E2E_ORIGIN } from './origin';
 
 /**
  * The feedback route, and the safeguard that makes it usable.
@@ -11,7 +12,7 @@ test.describe('의견 보내기', () => {
   test('이름 가린 화면을 저장하고, 파일명에 이름이 없다', async ({ page }) => {
     const external: string[] = [];
     page.context().on('request', (r) => {
-      if (!r.url().startsWith('http://127.0.0.1:4173') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) {
+      if (!r.url().startsWith(E2E_ORIGIN) && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) {
         external.push(r.url());
       }
     });

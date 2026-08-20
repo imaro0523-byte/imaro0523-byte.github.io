@@ -169,7 +169,7 @@ export function ImportScreen() {
               </button>
               <button
                 type="button"
-                className="btn-ghost"
+                className="btn-sample"
                 onClick={() => {
                   const sample = buildDividedSample();
                   loadRoster(sample.students, sample.meta);

@@ -17,8 +17,9 @@
  */
 
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { E2E_ORIGIN } from './origin';
 
-const ORIGIN = 'http://127.0.0.1:4173';
+const ORIGIN = E2E_ORIGIN;
 
 /** Static files the application is allowed to load. Nothing else. */
 const ALLOWED = [
@@ -233,7 +234,7 @@ test.describe('개인정보 감사 — 프로덕션 빌드', () => {
         const ok = navigator.sendBeacon(`/beacon?d=${mark}`, mark);
         if (!ok) throw new Error('SendBeaconRefused');
       });
-      await attempt('websocket', () => new WebSocket(`ws://127.0.0.1:4173/ws?d=${mark}`));
+      await attempt('websocket', () => new WebSocket(`${ORIGIN.replace('http://', 'ws://')}/ws?d=${mark}`));
       await attempt('eventsource', () => new EventSource(`/sse?d=${mark}`));
       await attempt('image-same-origin', () => {
         const img = new Image();

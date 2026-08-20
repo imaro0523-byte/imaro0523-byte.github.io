@@ -2,6 +2,7 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 
 import { writeFixtureWorkbook } from './fixtures';
 import { TWO_RUN_NAMES } from '../support/neisFixture';
+import { E2E_ORIGIN } from './origin';
 
 /**
  * Records every request the page makes that is not same-origin.
@@ -11,7 +12,7 @@ import { TWO_RUN_NAMES } from '../support/neisFixture';
  */
 function watchNetwork(page: Page): { external: string[] } {
   const external: string[] = [];
-  const origin = 'http://127.0.0.1:4173';
+  const origin = E2E_ORIGIN;
 
   const record = (request: Request) => {
     const url = request.url();

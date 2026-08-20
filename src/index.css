@@ -67,6 +67,17 @@
     @apply btn text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800;
   }
 
+  /*
+   * The second sample. It sits beside «샘플 명단으로 먼저 체험해 보기» and does
+   * the same kind of thing, so it gets the same shape — but a different colour,
+   * because the two samples exist to show different things and a teacher should
+   * be able to tell at a glance that this is not the same button.
+   */
+  .btn-sample {
+    @apply btn border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100
+           dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900;
+  }
+
   .btn-danger {
     @apply btn border border-red-300 bg-white text-red-700 hover:bg-red-50
            dark:border-red-800 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950;
