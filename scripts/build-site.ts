@@ -51,6 +51,10 @@ if (!existsSync(DIST)) {
   process.exit(1);
 }
 
+// Before anything is copied, not after: a guard that runs once the files are
+// already in the published folder is a guard that has already failed.
+refuseUnmaskedOriginals(SITE);
+
 // Move the freshly built app aside, clear dist, then reassemble.
 if (existsSync(STAGE)) rmSync(STAGE, { recursive: true, force: true });
 renameSync(DIST, STAGE);
@@ -64,6 +68,29 @@ rmSync(STAGE, { recursive: true, force: true });
 // so hosts that read it apply the policy to every path.
 const appHeaders = join(APP, '_headers');
 if (existsSync(appHeaders)) rmSync(appHeaders);
+
+/**
+ * Everything under `site/` is published verbatim. A screenshot of an
+ * administrative system routinely carries a school name, a teacher's name and
+ * an account id, and the masked copy is easy to mistake for the only copy —
+ * so an unmasked original left in that folder would ship without anyone
+ * noticing. Keep originals in `private/`, which git ignores and the build
+ * never reads.
+ */
+function refuseUnmaskedOriginals(dir: string, shown = 'site'): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const where = `${shown}/${entry.name}`;
+    if (entry.isDirectory()) {
+      refuseUnmaskedOriginals(join(dir, entry.name), where);
+    } else if (/-raw\.[a-z0-9]+$/i.test(entry.name)) {
+      console.error(
+        `${where} 는 가리기 전 원본으로 보입니다. 배포 폴더에 들어가면 그대로 공개됩니다.\n` +
+          `private/ 로 옮기십시오. (git 이 무시하고 빌드도 읽지 않는 위치입니다.)`,
+      );
+      process.exit(1);
+    }
+  }
+}
 
 // ─── Articles ────────────────────────────────────────────────────────────
 //
