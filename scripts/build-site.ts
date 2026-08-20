@@ -265,6 +265,7 @@ function guideIndexPage(articles: Article[]): string {
     <meta name="description" content="${description}" />
     <link rel="canonical" href="${url}" />
     <link rel="stylesheet" href="../style.css" />
+    <link rel="alternate" type="application/rss+xml" title="자리배치 도우미 — 읽을거리" href="../rss.xml" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="자리배치 도우미" />
     <meta property="og:locale" content="ko_KR" />
@@ -310,6 +311,38 @@ if (articles.length > 0) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'index.html'), articlePage(article), 'utf8');
   }
+
+  // An RSS feed, because Naver's webmaster tools ask for one alongside the
+  // sitemap and treat it as the signal that a site publishes articles rather
+  // than just existing. Built from the same list as everything else, so it
+  // cannot fall out of step with the pages.
+  writeFileSync(
+    join(DIST, 'rss.xml'),
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<rss version="2.0">\n  <channel>\n' +
+      '    <title>자리배치 도우미 — 읽을거리</title>\n' +
+      `    <link>${ORIGIN}/guide/</link>\n` +
+      '    <description>교실 자리 배치와 모둠 편성에 관해 현직 교사가 쓴 글 모음입니다.</description>\n' +
+      '    <language>ko</language>\n' +
+      `    <lastBuildDate>${new Date(`${articles[0]?.date}T00:00:00+09:00`).toUTCString()}</lastBuildDate>\n` +
+      articles
+        .map((a) => {
+          const url = `${ORIGIN}/guide/${a.slug}/`;
+          const published = new Date(`${a.date}T00:00:00+09:00`).toUTCString();
+          return (
+            '    <item>\n' +
+            `      <title>${escapeHtml(a.title)}</title>\n` +
+            `      <link>${url}</link>\n` +
+            `      <guid isPermaLink="true">${url}</guid>\n` +
+            `      <pubDate>${published}</pubDate>\n` +
+            `      <description>${escapeHtml(a.description)}</description>\n` +
+            '    </item>\n'
+          );
+        })
+        .join('') +
+      '  </channel>\n</rss>\n',
+    'utf8',
+  );
 }
 
 // The guide is only worth linking to once something is in it. An empty section
