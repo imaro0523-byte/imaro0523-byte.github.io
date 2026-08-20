@@ -164,3 +164,37 @@ export function seatFairness(
   }
   return out;
 }
+
+/**
+ * Folds records from another backup into the ones already held.
+ *
+ * Restoring a backup replaces the whole project, history included, so a
+ * teacher who kept one file per term could only ever use the last one — the
+ * app would avoid last month's seats and forget everything before that. That
+ * is the opposite of what a record is for.
+ *
+ * Merging keeps every arrangement. Records are identified by `id`, so
+ * importing the same file twice adds nothing and cannot double-weight an
+ * arrangement. The result is newest first, which is the order the index wants,
+ * though `buildHistoryIndex` sorts defensively anyway.
+ */
+export function mergeRecords(
+  existing: readonly ArrangementRecord[],
+  incoming: readonly ArrangementRecord[],
+): { records: ArrangementRecord[]; added: number; duplicates: number } {
+  const byId = new Map<string, ArrangementRecord>();
+  for (const record of existing) byId.set(record.id, record);
+
+  let added = 0;
+  let duplicates = 0;
+  for (const record of incoming) {
+    if (byId.has(record.id)) duplicates += 1;
+    else {
+      byId.set(record.id, record);
+      added += 1;
+    }
+  }
+
+  const records = [...byId.values()].sort((a, b) => b.date.localeCompare(a.date));
+  return { records, added, duplicates };
+}

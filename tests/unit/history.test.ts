@@ -8,6 +8,7 @@ import { TEACHER_FACING } from '@/core/exportData/redact';
 import { createClassroom, seatsOf } from '@/core/layout/grid';
 import type { ArrangementRecord, SeatAssignment, Student } from '@/core/model/types';
 import { makeStudents } from '../support/students';
+import { mergeRecords } from '@/core/history';
 
 const classroom = createClassroom({ rows: 3, cols: 4, pairDesks: true });
 
@@ -236,5 +237,51 @@ describe('reading a previous arrangement back out of an exported workbook', () =
     );
     // The sheet exists but holds no student rows, so there is nothing to load.
     expect(readHistorySheet(bytes, [], '2026-08-12')).toBeNull();
+  });
+});
+
+describe('mergeRecords', () => {
+  const record = (id: string, date: string): ArrangementRecord => ({
+    schemaVersion: 1,
+    id,
+    date,
+    students: [],
+    seatAssignment: {},
+    partners: {},
+    neighbors: {},
+    groupOf: {},
+    seed: 1,
+  });
+
+  it('keeps both sides instead of replacing one with the other', () => {
+    // Restoring a backup replaces history outright, so a teacher with one file
+    // per term could only ever use the newest. This is the path that lets a
+    // whole year accumulate.
+    const merged = mergeRecords([record('a', '2026-03-02')], [record('b', '2026-05-10')]);
+    expect(merged.records.map((r) => r.id)).toEqual(['b', 'a']);
+    expect(merged.added).toBe(1);
+    expect(merged.duplicates).toBe(0);
+  });
+
+  it('counts the same arrangement once however often it is imported', () => {
+    const first = mergeRecords([], [record('a', '2026-03-02')]);
+    const again = mergeRecords(first.records, [record('a', '2026-03-02')]);
+
+    expect(again.records).toHaveLength(1);
+    expect(again.added).toBe(0);
+    expect(again.duplicates).toBe(1);
+  });
+
+  it('returns records newest first, whatever order they arrived in', () => {
+    const merged = mergeRecords(
+      [record('old', '2025-09-01'), record('new', '2026-07-01')],
+      [record('mid', '2026-01-15')],
+    );
+    expect(merged.records.map((r) => r.id)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('makes the merged history usable by the index', () => {
+    const merged = mergeRecords([record('a', '2026-03-02')], [record('b', '2026-05-10')]);
+    expect(buildHistoryIndex(merged.records).recordCount).toBe(2);
   });
 });

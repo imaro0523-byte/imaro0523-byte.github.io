@@ -9,6 +9,7 @@
 import { create } from 'zustand';
 
 import type { Constraint } from '@/core/constraints/kinds';
+import { mergeRecords } from '@/core/history';
 import { buildRecord } from '@/core/history/record';
 import { createClassroom, retagZones, seatsOf } from '@/core/layout/grid';
 import { regroupFromSeats } from '@/core/layout/groupIslands';
@@ -166,6 +167,8 @@ interface AppState extends Snapshot {
   clearAll: () => void;
   markSaved: () => void;
   hydrate: (payload: Partial<Snapshot> & { meta?: RosterMeta | null; history?: ArrangementRecord[]; seed?: number }) => void;
+  /** Folds records from another backup in, keeping the ones already held. */
+  mergeHistory: (records: readonly ArrangementRecord[]) => { added: number; duplicates: number };
 }
 
 const UNDO_LIMIT = 40;
@@ -551,6 +554,12 @@ export const useAppStore = create<AppState>()((set, get) => {
       }),
 
     markSaved: () => set({ dirty: false }),
+
+    mergeHistory: (records) => {
+      const merged = mergeRecords(get().history, records);
+      mutate(() => ({ history: merged.records }));
+      return { added: merged.added, duplicates: merged.duplicates };
+    },
 
     hydrate: (payload) =>
       set((state) => ({

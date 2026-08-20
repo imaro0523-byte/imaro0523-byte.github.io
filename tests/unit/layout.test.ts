@@ -207,14 +207,25 @@ describe('번호순 배치', () => {
 
     expect(unseated).toEqual([]);
 
-    const ordered = seatsOf(classroom).sort((a, b) =>
-      a.row !== b.row ? a.row - b.row : a.col - b.col,
+    // Down the first 세로줄, then the next: 1번 and 2번 sit one behind the
+    // other, which is how exam seating is numbered.
+    const byColumn = seatsOf(classroom).sort((a, b) =>
+      a.col !== b.col ? a.col - b.col : a.row - b.row,
     );
-    // 1번 nearest the board on the far left, then along the row.
-    expect(assignment[ordered[0]!.id]).toBe(students[0]!.id);
-    expect(assignment[ordered[5]!.id]).toBe(students[5]!.id);
-    expect(assignment[ordered[6]!.id]).toBe(students[6]!.id);
-    expect(assignment[ordered[29]!.id]).toBe(students[29]!.id);
+    expect(assignment[byColumn[0]!.id]).toBe(students[0]!.id);
+    expect(assignment[byColumn[1]!.id]).toBe(students[1]!.id);
+    expect(assignment[byColumn[4]!.id]).toBe(students[4]!.id);
+    // Sixth student starts the second column, not the second seat of row 0.
+    expect(assignment[byColumn[5]!.id]).toBe(students[5]!.id);
+    expect(byColumn[5]!.col).toBeGreaterThan(byColumn[4]!.col);
+    expect(assignment[byColumn[29]!.id]).toBe(students[29]!.id);
+
+    // The whole of one column is a run of consecutive numbers.
+    const firstColumn = seatsOf(classroom)
+      .filter((seat) => seat.col === byColumn[0]!.col)
+      .sort((a, b) => a.row - b.row)
+      .map((seat) => assignment[seat.id]);
+    expect(firstColumn).toEqual(students.slice(0, 5).map((s) => s.id));
   });
 
   it('is reproducible without a seed, unlike every other path', () => {
@@ -236,10 +247,10 @@ describe('번호순 배치', () => {
     expect(seated).toHaveLength(4);
     expect(seated).not.toContain(students[1]!.id);
     // The gap closes: 3번 moves up into the seat 2번 would have taken.
-    const ordered = seatsOf(classroom).sort((a, b) =>
-      a.row !== b.row ? a.row - b.row : a.col - b.col,
+    const byColumn = seatsOf(classroom).sort((a, b) =>
+      a.col !== b.col ? a.col - b.col : a.row - b.row,
     );
-    expect(assignment[ordered[1]!.id]).toBe(students[2]!.id);
+    expect(assignment[byColumn[1]!.id]).toBe(students[2]!.id);
   });
 
   it('reports the students a small room could not seat', () => {

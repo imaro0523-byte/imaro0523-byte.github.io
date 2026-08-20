@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 
 import { parseBackup } from '@/core/exportData/toJson';
+import type { ArrangementRecord } from '@/core/model/types';
 import { safeErrorMessage } from '@/lib/log';
 import { disableOffline, enableOffline, isOfflineReady, serviceWorkerSupported } from '@/lib/pwa';
 import { disposeSolver } from '@/lib/solverClient';
@@ -79,6 +80,34 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       onClose();
     } catch (caught) {
       setError(safeErrorMessage(caught, '백업 파일을 읽지 못했습니다.'));
+    }
+  };
+
+  /**
+   * Reads history out of one or more backups and adds it to what is already
+   * held, leaving the current roster, room and constraints untouched.
+   *
+   * Restoring a backup replaces everything, which means a teacher with one
+   * file per term could only ever use the newest. Terms are exactly the thing
+   * worth accumulating: avoiding last month's seats is easy, avoiding every
+   * seat a class has had all year is the part that needs records.
+   */
+  const mergeHistoryFiles = async (files: FileList) => {
+    setError(null);
+    try {
+      const incoming: ArrangementRecord[] = [];
+      for (const file of Array.from(files)) {
+        incoming.push(...parseBackup(await file.text()).history);
+      }
+      const { added, duplicates } = state.mergeHistory(incoming);
+      setMessage(
+        added === 0
+          ? '새로 추가된 기록이 없습니다. 이미 가지고 있는 배치입니다.'
+          : `배치 기록 ${added}개를 더했습니다. 이제 ${state.history.length + added}개입니다.` +
+            (duplicates > 0 ? ` (겹치는 ${duplicates}개는 건너뛰었습니다.)` : ''),
+      );
+    } catch (caught) {
+      setError(safeErrorMessage(caught, '배치 기록을 읽지 못했습니다.'));
     }
   };
 
@@ -246,6 +275,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
       <section className="space-y-2">
         <h3 className="font-semibold">백업 파일에서 불러오기</h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          명단·교실·조건·기록을 전부 그 파일의 것으로 바꿉니다. 지금 작업 중인 내용은 사라집니다.
+        </p>
         <input
           type="file"
           accept=".json,application/json"
@@ -256,6 +288,30 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             e.target.value = '';
           }}
         />
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-semibold">지난 배치 기록만 더하기</h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          백업 파일에서 <strong>배치 기록만</strong> 꺼내 지금 것에 더합니다. 명단과 교실은
+          그대로 둡니다. <strong>여러 개를 한 번에 고를 수 있습니다</strong> — 학기마다 백업해 두셨다면
+          전부 고르세요. 같은 배치는 두 번 세지 않습니다.
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          더한 뒤 «조건 정하기»에서 «지난 짝 피하기»의 «최근 몇 회»를 늘리면 그만큼 거슬러 올라가 피합니다.
+        </p>
+        <input
+          type="file"
+          multiple
+          accept=".json,application/json"
+          className="text-xs"
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) void mergeHistoryFiles(files);
+            e.target.value = '';
+          }}
+        />
+        <p className="text-xs text-slate-500">지금 가지고 있는 기록 {state.history.length}개</p>
       </section>
 
       <section className="space-y-2 rounded-lg border border-red-300 p-3 dark:border-red-800">

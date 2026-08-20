@@ -8,10 +8,14 @@
  * asks where to sit needs an answer that does not depend on a seed.
  *
  * So this ignores every constraint, every weight and every random source. It
- * fills seats in canonical order (row 0 first, which is the row nearest the
- * board, then left to right as a seated student sees the room) with students
- * in roster order. Excluded students are skipped, exactly as elsewhere: a
- * transferred-out student is absent from the room, not sitting in it.
+ * fills seats with students in roster order, and it fills them **down each
+ * column before moving to the next** — 1번 and 2번 sit one behind the other,
+ * not side by side. That is how exam seating is actually numbered in a Korean
+ * classroom: a 세로줄 is the unit, and a teacher reading a column finds a run
+ * of consecutive numbers.
+ *
+ * Excluded students are skipped, exactly as elsewhere: a transferred-out
+ * student is absent from the room, not sitting in it.
  */
 
 import { isPlaceable, type Classroom, type SeatAssignment, type Student } from '../model/types';
@@ -27,9 +31,10 @@ export function assignInNumberOrder(
   classroom: Classroom,
   students: readonly Student[],
 ): NumberOrderResult {
+  // Column-major: down the 세로줄 first, then across to the next one.
   const seats = classroom.seats
     .filter((seat) => seat.kind === 'seat')
-    .sort((a, b) => (a.row !== b.row ? a.row - b.row : a.col - b.col));
+    .sort((a, b) => (a.col !== b.col ? a.col - b.col : a.row - b.row));
 
   const ordered = inRosterOrder(students.filter(isPlaceable));
 
