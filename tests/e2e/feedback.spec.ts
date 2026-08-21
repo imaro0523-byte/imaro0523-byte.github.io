@@ -59,10 +59,21 @@ test.describe('의견 보내기', () => {
     expect(text).toContain('[1] 무엇을 하려고 했나');
   });
 
-  test('설정 전에는 링크 대신 안내를 보여 준다', async ({ page }) => {
+  test('의견 보내는 곳이 새 탭으로 열리고, 주소에 아무것도 실리지 않는다', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: '의견 보내기' }).click();
-    // Nothing is configured in the repository, so no dead link is shown.
-    await expect(page.getByText(/의견 보내는 곳이 아직 설정되지 않았습니다/)).toBeVisible();
+
+    const link = page.getByRole('link', { name: /의견 보내기/ });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('target', '_blank');
+    // Opening a new tab must not hand the destination a referrer either.
+    await expect(link).toHaveAttribute('rel', /noopener/);
+
+    // The point of the rule: a link is a destination, never a delivery van.
+    // A query string or a fragment is where class data would ride along.
+    const href = (await link.getAttribute('href')) ?? '';
+    expect(href.startsWith('https://')).toBe(true);
+    expect(href).not.toContain('?');
+    expect(href).not.toContain('#');
   });
 });
