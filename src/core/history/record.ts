@@ -177,3 +177,30 @@ export function remapRecord(record: ArrangementRecord, mapping: Record<string, s
     neighbors,
   };
 }
+
+/**
+ * Whether two records describe the same arrangement.
+ *
+ * Pressing «기록에 추가» twice used to store the arrangement twice. The count
+ * going up was the harmless half; the real damage was to the next batch of
+ * seating, because the history index weights each record separately. Five
+ * presses made one afternoon count five times, and «지난 짝 피하기» started
+ * pushing hard against pairs that had actually only sat together once.
+ *
+ * Seats and groups are the whole of an arrangement. `partners`, `neighbors`
+ * and `students` are derived from them and the room, so comparing those two
+ * is both sufficient and cheap. Note that a grouping-only run leaves the seats
+ * alone and changes `groupOf`, which is correctly *not* a duplicate.
+ */
+export function sameArrangement(a: ArrangementRecord, b: ArrangementRecord): boolean {
+  return sameMap(a.seatAssignment, b.seatAssignment) && sameMap(a.groupOf, b.groupOf);
+}
+
+function sameMap<T extends string | number>(
+  a: Record<string, T>,
+  b: Record<string, T>,
+): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((key) => a[key] === b[key]);
+}

@@ -438,10 +438,13 @@ export function ResultScreen() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => {
-                  recordCurrent();
-                  setMessage('이번 배치를 기록했습니다.');
-                }}
+                onClick={() =>
+                  setMessage(
+                    recordCurrent()
+                      ? '이번 배치를 기록했습니다.'
+                      : '이미 기록해 둔 배치입니다. 같은 배치는 한 번만 저장됩니다.',
+                  )
+                }
               >
                 기록에 추가 (지금 {history.length}개)
               </button>

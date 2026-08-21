@@ -9,6 +9,7 @@ import { createClassroom, seatsOf } from '@/core/layout/grid';
 import type { ArrangementRecord, SeatAssignment, Student } from '@/core/model/types';
 import { makeStudents } from '../support/students';
 import { mergeRecords } from '@/core/history';
+import { sameArrangement } from '@/core/history/record';
 
 const classroom = createClassroom({ rows: 3, cols: 4, pairDesks: true });
 
@@ -283,5 +284,39 @@ describe('mergeRecords', () => {
   it('makes the merged history usable by the index', () => {
     const merged = mergeRecords([record('a', '2026-03-02')], [record('b', '2026-05-10')]);
     expect(buildHistoryIndex(merged.records).recordCount).toBe(2);
+  });
+});
+
+describe('sameArrangement', () => {
+  const base = (over: Partial<ArrangementRecord> = {}): ArrangementRecord => ({
+    schemaVersion: 1,
+    id: 'r1',
+    date: '2026-08-20',
+    students: [],
+    seatAssignment: { s1: 'a', s2: 'b' },
+    partners: {},
+    neighbors: {},
+    groupOf: { a: 0, b: 0 },
+    seed: 7,
+    ...over,
+  });
+
+  it('treats a second press of «기록에 추가» as the same arrangement', () => {
+    // Different id, different seed, same seats and groups: the teacher pressed
+    // the button twice, not sat the class down twice.
+    expect(sameArrangement(base(), base({ id: 'r2', seed: 99 }))).toBe(true);
+  });
+
+  it('sees a manual seat swap as a different arrangement', () => {
+    expect(sameArrangement(base(), base({ seatAssignment: { s1: 'b', s2: 'a' } }))).toBe(false);
+  });
+
+  it('sees a regroup with unchanged seats as different', () => {
+    // «모둠 편성만» leaves the seats alone. That is a real second arrangement.
+    expect(sameArrangement(base(), base({ groupOf: { a: 0, b: 1 } }))).toBe(false);
+  });
+
+  it('does not call a partial arrangement equal to a fuller one', () => {
+    expect(sameArrangement(base(), base({ seatAssignment: { s1: 'a' } }))).toBe(false);
   });
 });

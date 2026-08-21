@@ -10,7 +10,7 @@ import { create } from 'zustand';
 
 import type { Constraint } from '@/core/constraints/kinds';
 import { mergeRecords } from '@/core/history';
-import { buildRecord } from '@/core/history/record';
+import { buildRecord, sameArrangement } from '@/core/history/record';
 import { createClassroom, retagZones, seatsOf } from '@/core/layout/grid';
 import { regroupFromSeats } from '@/core/layout/groupIslands';
 import { uuid } from '@/core/model/ids';
@@ -147,7 +147,8 @@ interface AppState extends Snapshot {
   setGenerateOptions: (patch: Partial<GenerateOptions>) => void;
 
   // --- history ----------------------------------------------------------
-  recordCurrent: (label?: string) => void;
+  /** Returns false when this exact arrangement is already recorded. */
+  recordCurrent: (label?: string) => boolean;
   addHistoryRecord: (record: ArrangementRecord) => void;
   removeHistoryRecord: (id: string) => void;
 
@@ -470,22 +471,26 @@ export const useAppStore = create<AppState>()((set, get) => {
     setGenerateOptions: (patch) =>
       set((state) => ({ generate: { ...state.generate, ...patch } })),
 
-    recordCurrent: (label) =>
-      set((state) => ({
-        history: [
-          ...state.history,
-          buildRecord({
-            classroom: state.classroom,
-            students: state.students,
-            assignment: state.assignment,
-            grouping: state.grouping,
-            seed: state.seed,
-            label,
-            grade: state.meta?.grade,
-            classNumber: state.meta?.classNumber,
-          }),
-        ],
-      })),
+    recordCurrent: (label) => {
+      const state = get();
+      const record = buildRecord({
+        classroom: state.classroom,
+        students: state.students,
+        assignment: state.assignment,
+        grouping: state.grouping,
+        seed: state.seed,
+        label,
+        grade: state.meta?.grade,
+        classNumber: state.meta?.classNumber,
+      });
+
+      // Recording the same arrangement twice would make it weigh twice in the
+      // next «지난 짝 피하기», which is worse than the duplicate itself.
+      if (state.history.some((existing) => sameArrangement(existing, record))) return false;
+
+      set({ history: [...state.history, record] });
+      return true;
+    },
 
     addHistoryRecord: (record) => set((state) => ({ history: [...state.history, record] })),
     removeHistoryRecord: (id) =>
