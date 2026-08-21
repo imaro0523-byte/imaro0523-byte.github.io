@@ -79,3 +79,57 @@ export function describeForFeedback(info: DiagnosticInfo): string {
     `보기 기준: ${info.viewpoint}`,
   ].join('\n');
 }
+
+/**
+ * The whole of a report, as one block of text.
+ *
+ * Diagnostics alone tell you the room was 5×8 and the seed was 41250. They do
+ * not tell you what the teacher was trying to do, which is the only part a
+ * machine cannot reconstruct. So the three sentences come first and the
+ * automatic part follows, in one block with a header — a teacher pastes it
+ * somewhere, it arrives whole, and whoever reads it can see at a glance
+ * whether it is complete.
+ *
+ * Student names never enter this. Everything here is either typed by the
+ * teacher or derived from counts and settings, and a test pins that down.
+ */
+export const FEEDBACK_REPORT_HEADER = '=== 자리배치 도우미 · 의견 (형식 v1) ===';
+export const FEEDBACK_REPORT_FOOTER = '=== 여기까지 ===';
+
+export interface FeedbackReportInput {
+  /** What the teacher was trying to do. */
+  situation: string;
+  /** What actually happened. */
+  problem: string;
+  /** What they expected instead, or what they wish existed. */
+  expected: string;
+  /** Output of `describeForFeedback`. */
+  diagnostics: string;
+  /** Browser and screen, for bugs that only appear somewhere specific. */
+  environment: string;
+}
+
+function orBlank(value: string): string {
+  const trimmed = value.trim();
+  return trimmed === '' ? '(적지 않음)' : trimmed;
+}
+
+export function buildFeedbackReport(input: FeedbackReportInput): string {
+  return [
+    FEEDBACK_REPORT_HEADER,
+    '',
+    '[1] 무엇을 하려고 했나',
+    orBlank(input.situation),
+    '',
+    '[2] 무엇이 일어났나',
+    orBlank(input.problem),
+    '',
+    '[3] 어떻게 되기를 바랐나',
+    orBlank(input.expected),
+    '',
+    '--- 아래는 앱이 자동으로 채웁니다. 학생 이름은 들어 있지 않습니다. ---',
+    input.diagnostics,
+    input.environment,
+    FEEDBACK_REPORT_FOOTER,
+  ].join('\n');
+}

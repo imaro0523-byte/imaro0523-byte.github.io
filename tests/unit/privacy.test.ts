@@ -29,6 +29,11 @@ import type { Constraint } from '@/core/constraints/kinds';
 import { createClassroom, seatsOf } from '@/core/layout/grid';
 import type { Grouping, SeatAssignment, Student } from '@/core/model/types';
 import { makeStudents } from '../support/students';
+import {
+  buildFeedbackReport,
+  FEEDBACK_REPORT_FOOTER,
+  FEEDBACK_REPORT_HEADER,
+} from '@/core/exportData/anonymize';
 
 const SRC = join(process.cwd(), 'src');
 
@@ -582,5 +587,50 @@ describe('feedback screenshots', () => {
     // But it does carry what a maintainer needs.
     expect(text).toContain('12345');
     expect(text).toContain('6모둠');
+  });
+});
+
+describe('의견 보고서', () => {
+  it('carries counts and settings but never a student name', () => {
+    // The teacher types the first three fields, so those are theirs to fill.
+    // The automatic half is the part that must be safe without them checking.
+    const report = buildFeedbackReport({
+      situation: '25명을 6모둠으로 나누려 했습니다',
+      problem: '조건을 지킬 수 없다고 나옵니다',
+      expected: '어떤 조건이 걸렸는지 알려 주면 좋겠습니다',
+      diagnostics: describeForFeedback({
+        appVersion: '1.0.0',
+        screen: '결과 보기',
+        studentCount: 25,
+        excludedCount: 1,
+        classroom: '5줄 × 8칸',
+        seatCount: 30,
+        groups: '6모둠 (5, 4, 4, 4, 4, 4명)',
+        constraints: 3,
+        seed: 41250,
+        viewpoint: '교사 관점',
+      }),
+      environment: '브라우저: TestBrowser/1.0',
+    });
+
+    expect(report).toContain(FEEDBACK_REPORT_HEADER);
+    expect(report).toContain(FEEDBACK_REPORT_FOOTER);
+    expect(report).toContain('학생 수: 25명');
+    expect(report).toContain('랜덤 시드: 41250');
+    expect(report).toContain('25명을 6모둠으로 나누려 했습니다');
+    // Nothing in the automatic half can name anyone.
+    expect(report).not.toMatch(/학생\d\d/);
+  });
+
+  it('says so plainly when a field was left empty', () => {
+    const report = buildFeedbackReport({
+      situation: '',
+      problem: '   ',
+      expected: '이렇게요',
+      diagnostics: '앱 버전: 1.0.0',
+      environment: '브라우저: TestBrowser/1.0',
+    });
+    expect(report.match(/\(적지 않음\)/g)).toHaveLength(2);
+    expect(report).toContain('이렇게요');
   });
 });

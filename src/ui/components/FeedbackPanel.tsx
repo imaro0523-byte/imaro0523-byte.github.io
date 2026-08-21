@@ -13,6 +13,7 @@ import { useRef, useState } from 'react';
 import {
   anonymizeGrouping,
   anonymizeStudents,
+  buildFeedbackReport,
   describeForFeedback,
 } from '@/core/exportData/anonymize';
 import { seatsOf } from '@/core/layout/grid';
@@ -41,6 +42,11 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
   const [preparing, setPreparing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [situation, setSituation] = useState('');
+  const [problem, setProblem] = useState('');
+  const [expected, setExpected] = useState('');
+  const [copied, setCopied] = useState(false);
+  const reportRef = useRef<HTMLTextAreaElement>(null);
 
   const safeStudents = anonymizeStudents(students);
   const safeGrouping = anonymizeGrouping(grouping);
@@ -60,6 +66,31 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
     seed,
     viewpoint: VIEWPOINT_LABELS[viewpoint],
   });
+
+  /**
+   * Browser and screen size. A teacher's own environment, never a student's —
+   * and the whole report is shown before it goes anywhere, so nothing leaves
+   * without being read first.
+   */
+  const environment = [
+    `브라우저: ${navigator.userAgent}`,
+    `창 크기: ${window.innerWidth}×${window.innerHeight}`,
+  ].join('\n');
+
+  const report = buildFeedbackReport({ situation, problem, expected, diagnostics, environment });
+
+  const copyReport = async () => {
+    setCopied(false);
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopied(true);
+    } catch {
+      // Clipboard access can be refused; selecting the text is the fallback
+      // every browser still allows, and Ctrl+C then does the rest.
+      reportRef.current?.focus();
+      reportRef.current?.select();
+    }
+  };
 
   const saveAnonymisedShot = async () => {
     setError(null);
@@ -124,19 +155,69 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
         )}
       </section>
 
-      <section className="space-y-2">
-        <h3 className="font-semibold">진단 정보</h3>
+      <section className="space-y-3">
+        <h3 className="font-semibold">무슨 일이 있었는지 적어 주세요</h3>
         <p className="text-xs text-slate-500">
-          아래 내용을 함께 붙여 주시면 상황을 훨씬 빨리 재현할 수 있습니다.
+          세 칸을 채우면 아래에 보낼 내용이 한 덩어리로 만들어집니다. 다 못 채우셔도 됩니다.
+        </p>
+
+        <div>
+          <label className="label" htmlFor="fb-situation">
+            1. 무엇을 하려고 했나요
+          </label>
+          <textarea
+            id="fb-situation"
+            className="input h-16 text-xs"
+            placeholder="예: 25명을 6모둠으로 나누고 자리까지 만들려고 했습니다."
+            value={situation}
+            onChange={(e) => setSituation(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="fb-problem">
+            2. 무엇이 일어났나요
+          </label>
+          <textarea
+            id="fb-problem"
+            className="input h-16 text-xs"
+            placeholder="예: 자리 만들기를 누르면 계속 «조건을 지킬 수 없습니다»가 뜹니다."
+            value={problem}
+            onChange={(e) => setProblem(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="fb-expected">
+            3. 어떻게 되기를 바랐나요
+          </label>
+          <textarea
+            id="fb-expected"
+            className="input h-16 text-xs"
+            placeholder="예: 어떤 조건이 걸렸는지 알려 주면 좋겠습니다."
+            value={expected}
+            onChange={(e) => setExpected(e.target.value)}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-semibold">보낼 내용</h3>
+        <p className="text-xs text-slate-500">
+          아래를 통째로 복사해 붙여 주세요.
           <strong className="ml-1">학생 이름은 들어 있지 않습니다.</strong>
         </p>
         <textarea
-          className="input h-40 font-mono text-xs"
+          ref={reportRef}
+          className="input h-56 font-mono text-xs"
           readOnly
-          value={diagnostics}
-          aria-label="진단 정보"
+          value={report}
+          aria-label="보낼 내용"
           onFocus={(e) => e.currentTarget.select()}
         />
+        <button type="button" className="btn-primary" onClick={() => void copyReport()}>
+          {copied ? '복사했습니다' : '전체 복사'}
+        </button>
       </section>
 
       <section className="space-y-2">
@@ -153,7 +234,7 @@ export function FeedbackPanel({ onClose }: { onClose: () => void }) {
             </a>
             <p className="text-xs text-slate-500">
               새 탭으로 이동할 뿐이며, 이 앱이 무엇을 자동으로 보내지는 않습니다.
-              위에서 저장한 그림과 진단 정보를 직접 첨부해 주세요.
+              위의 «보낼 내용»을 붙여넣고, 이름 가린 그림이 있으면 함께 첨부해 주세요.
             </p>
           </>
         ) : (

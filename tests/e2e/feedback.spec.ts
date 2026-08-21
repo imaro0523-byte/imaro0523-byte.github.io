@@ -39,7 +39,7 @@ test.describe('의견 보내기', () => {
     expect(external).toEqual([]);
   });
 
-  test('진단 정보에 학생 이름이 들어가지 않는다', async ({ page }) => {
+  test('보낼 내용에 학생 이름이 들어가지 않는다', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: '샘플 명단으로 먼저 체험해 보기' }).click();
     await page.getByLabel('이름').first().fill('홍길동');
@@ -47,13 +47,16 @@ test.describe('의견 보내기', () => {
     await page.getByLabel('교사 메모').first().fill('비밀메모입니다');
 
     await page.getByRole('button', { name: '의견 보내기' }).click();
-    const text = await page.getByLabel('진단 정보').inputValue();
+    const text = await page.getByLabel('보낼 내용').inputValue();
 
     expect(text).not.toContain('홍길동');
     expect(text).not.toContain('비밀메모입니다');
     // But it carries what is needed to reproduce a report.
     expect(text).toContain('학생 수: 25명');
     expect(text).toContain('랜덤 시드');
+    // The header is what makes a pasted report recognisable as one.
+    expect(text).toContain('자리배치 도우미 · 의견 (형식 v1)');
+    expect(text).toContain('[1] 무엇을 하려고 했나');
   });
 
   test('설정 전에는 링크 대신 안내를 보여 준다', async ({ page }) => {
