@@ -8,11 +8,7 @@
 import { useMemo, useState } from 'react';
 
 import { createClassroom, divisionColumns, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
-import {
-  createFanClassroom,
-  createHorseshoeClassroom,
-  createRingClassroom,
-} from '@/core/layout/shapes';
+import { createHorseshoeClassroom, createRingClassroom } from '@/core/layout/shapes';
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS, type Classroom } from '@/core/model/types';
@@ -93,12 +89,6 @@ const TEMPLATES: Template[] = [
     name: '원형 (둘러앉기)',
     description: '사방을 빙 둘러앉아 가운데를 봅니다. 머리 자리가 없는 학급 전체 토의용. 26자리',
     build: (windowSide) => createRingClassroom({ windowSide }),
-  },
-  {
-    key: 'fan',
-    name: '반원형',
-    description: '뒤로 갈수록 한 줄씩 넓어져, 앞사람 뒤통수에 가리지 않습니다. 28자리',
-    build: (windowSide) => createFanClassroom({ windowSide }),
   },
   {
     key: 'plain',

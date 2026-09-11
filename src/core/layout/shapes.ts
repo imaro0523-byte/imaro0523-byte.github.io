@@ -67,34 +67,6 @@ export function createHorseshoeClassroom(
 }
 
 /**
- * 반원형 (fan), widening away from the board.
- *
- * Each row holds two more seats than the row in front of it, centred, so the
- * class fans out from the board. Everyone faces front — unlike the horseshoe
- * this is a presentation shape, not a discussion one, and the arcs exist so
- * that nobody sits directly behind anybody else's head.
- *
- * Seats = rows × (frontWidth + rows − 1). The default is 28.
- */
-export function createFanClassroom(
-  { rows = 4, frontWidth = 4, windowSide }: ShapeOptions & { rows?: number; frontWidth?: number } = {},
-): Classroom {
-  // Every row is two wider than the last, so the total width is fixed by the
-  // deepest row. `cols - width` is always even, which is what keeps each arc
-  // centred on whole cells rather than half of one.
-  const cols = frontWidth + 2 * (rows - 1);
-  const classroom = createClassroom({ rows, cols, name: '반원형 교실', windowSide });
-
-  carve(classroom, (row, col) => {
-    const width = frontWidth + 2 * row;
-    const start = (cols - width) / 2;
-    return col >= start && col < start + width ? 'front' : null;
-  });
-
-  return classroom;
-}
-
-/**
  * 원형 — a closed ring around all four walls.
  *
  * The horseshoe leaves the board side open so the teacher can stand in the

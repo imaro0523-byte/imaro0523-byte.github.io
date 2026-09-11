@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildAdjacency, partnerPairs, seatDistance } from '@/core/layout/adjacency';
 import { addColumn, addRow, createClassroom, divisionColumns, seatAt, seatsOf } from '@/core/layout/grid';
 import { assignInNumberOrder } from '@/core/layout/numberOrder';
-import {
-  createFanClassroom,
-  createHorseshoeClassroom,
-  createRingClassroom,
-} from '@/core/layout/shapes';
+import { createHorseshoeClassroom, createRingClassroom } from '@/core/layout/shapes';
 import {
   boardPlacement,
   fromDisplay,
@@ -301,33 +297,6 @@ describe('ㄷ자 토론 대형', () => {
 
   it('leaves nobody at a shared desk', () => {
     expect(seatsOf(room).every((seat) => seat.deskId === undefined)).toBe(true);
-  });
-});
-
-describe('반원형', () => {
-  const room = createFanClassroom();
-
-  it('widens by two seats a row, centred on the room', () => {
-    const widths: number[] = [];
-    for (let row = 0; row < room.rows; row += 1) {
-      const inRow = seatsOf(room).filter((seat) => seat.row === row);
-      widths.push(inRow.length);
-
-      // Centred: the gap on the left equals the gap on the right.
-      const cols = inRow.map((seat) => seat.col);
-      const left = Math.min(...cols);
-      const right = room.cols - 1 - Math.max(...cols);
-      expect(left).toBe(right);
-
-      // And each arc is one unbroken run, not scattered cells.
-      expect(Math.max(...cols) - left + 1).toBe(inRow.length);
-    }
-    expect(widths).toEqual([4, 6, 8, 10]);
-    expect(seatsOf(room)).toHaveLength(28);
-  });
-
-  it('keeps everyone facing the board', () => {
-    expect(seatsOf(room).every((seat) => seat.facing === 'front')).toBe(true);
   });
 });
 
