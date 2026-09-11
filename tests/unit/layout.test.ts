@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildAdjacency, partnerPairs, seatDistance } from '@/core/layout/adjacency';
 import { addColumn, addRow, createClassroom, divisionColumns, seatAt, seatsOf } from '@/core/layout/grid';
 import { assignInNumberOrder } from '@/core/layout/numberOrder';
+import { createFanClassroom, createHorseshoeClassroom } from '@/core/layout/shapes';
 import {
   boardPlacement,
   fromDisplay,
@@ -260,5 +261,64 @@ describe('번호순 배치', () => {
 
     expect(Object.keys(assignment)).toHaveLength(3);
     expect(unseated.map((s) => s.name)).toEqual(students.slice(3).map((s) => s.name));
+  });
+});
+
+describe('ㄷ자 토론 대형', () => {
+  const room = createHorseshoeClassroom();
+
+  it('seats both side walls and the back, leaving the board side open', () => {
+    // 2 × rows on the walls, plus the back row between them.
+    expect(seatsOf(room)).toHaveLength(2 * room.rows + (room.cols - 2));
+
+    // The middle of the front row is where the teacher stands.
+    for (let col = 1; col < room.cols - 1; col += 1) {
+      expect(seatAt(room, 0, col)?.kind).toBe('aisle');
+    }
+    // And the middle of the room is empty all the way back.
+    for (let row = 1; row < room.rows - 1; row += 1) {
+      for (let col = 1; col < room.cols - 1; col += 1) {
+        expect(seatAt(room, row, col)?.kind).toBe('aisle');
+      }
+    }
+  });
+
+  it('turns every seat toward the middle', () => {
+    // `adjacency.ts` reads two seats that face each other as one desk, so a
+    // ring whose sides both pointed «front» would be scored as rows, not a ring.
+    expect(seatAt(room, 2, 0)?.facing).toBe('right');
+    expect(seatAt(room, 2, room.cols - 1)?.facing).toBe('left');
+    expect(seatAt(room, room.rows - 1, 3)?.facing).toBe('front');
+  });
+
+  it('leaves nobody at a shared desk', () => {
+    expect(seatsOf(room).every((seat) => seat.deskId === undefined)).toBe(true);
+  });
+});
+
+describe('반원형', () => {
+  const room = createFanClassroom();
+
+  it('widens by two seats a row, centred on the room', () => {
+    const widths: number[] = [];
+    for (let row = 0; row < room.rows; row += 1) {
+      const inRow = seatsOf(room).filter((seat) => seat.row === row);
+      widths.push(inRow.length);
+
+      // Centred: the gap on the left equals the gap on the right.
+      const cols = inRow.map((seat) => seat.col);
+      const left = Math.min(...cols);
+      const right = room.cols - 1 - Math.max(...cols);
+      expect(left).toBe(right);
+
+      // And each arc is one unbroken run, not scattered cells.
+      expect(Math.max(...cols) - left + 1).toBe(inRow.length);
+    }
+    expect(widths).toEqual([4, 6, 8, 10]);
+    expect(seatsOf(room)).toHaveLength(28);
+  });
+
+  it('keeps everyone facing the board', () => {
+    expect(seatsOf(room).every((seat) => seat.facing === 'front')).toBe(true);
   });
 });

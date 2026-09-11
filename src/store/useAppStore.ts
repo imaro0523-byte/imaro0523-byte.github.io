@@ -73,7 +73,9 @@ export interface GenerateOptions {
 }
 
 const DEFAULT_GENERATE: GenerateOptions = {
-  mode: 'seats',
+  // Most teachers arriving here want groups seated as groups, and the two-step
+  // dance of picking the mode every time was friction for the common case.
+  mode: 'groupSeats',
   sizeMode: 'byCount',
   groupCount: 6,
   targetSize: 4,

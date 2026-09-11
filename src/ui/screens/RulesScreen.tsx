@@ -42,6 +42,16 @@ const PRESETS: Array<{ name: string; description: string; build: () => Constrain
     ],
   },
   {
+    name: '일반 모둠 수업',
+    description: '구분1·구분2를 모둠마다 고르게 나누고, 지난 모둠원을 피합니다.',
+    build: () => [
+      { id: uuid(), kind: 'avoidPastGroupmate', severity: 'strong', enabled: true, withinLast: 3 },
+      // 성별이 아니라 «구분». 명렬표의 이름 순서로 나눈 두 무리가 무엇인지 앱은
+      // 알지 못하므로, 남녀라고 부르지 않고 고르게 나누기만 한다.
+      { id: uuid(), kind: 'genderMix', severity: 'weak', enabled: true, mode: 'balance', source: 'division' },
+    ],
+  },
+  {
     name: '시험 자리',
     description: '학생 사이에 두 칸 이상 간격을 둡니다.',
     build: () => [{ id: uuid(), kind: 'examSpacing', severity: 'strong', enabled: true, minDistance: 2 }],

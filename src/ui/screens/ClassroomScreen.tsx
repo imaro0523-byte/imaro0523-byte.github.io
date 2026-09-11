@@ -8,9 +8,10 @@
 import { useMemo, useState } from 'react';
 
 import { createClassroom, divisionColumns, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
+import { createFanClassroom, createHorseshoeClassroom } from '@/core/layout/shapes';
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
-import { VIEWPOINT_LABELS } from '@/core/model/types';
+import { VIEWPOINT_LABELS, type Classroom } from '@/core/model/types';
 import {
   arrangeSizes,
   hasUnevenSizes,
@@ -23,16 +24,21 @@ import { useAppStore } from '@/store/useAppStore';
 import { SeatMap } from '../components/SeatMap';
 import { FlipIcon, GridIcon, UsersIcon, WarningIcon } from '../components/Icons';
 
-const GROUP_COUNT_CHOICES = [4, 5, 6, 7, 8, 9];
+const GROUP_COUNT_CHOICES = [2, 3, 4, 5, 6, 7, 8, 9];
 
 interface Template {
   key: string;
   name: string;
   description: string;
-  rows: number;
-  cols: number;
-  pairDesks: boolean;
+  rows?: number;
+  cols?: number;
+  pairDesks?: boolean;
   aisleCols?: number[];
+  /**
+   * Shapes whose empty part is in the middle cannot be described by whole
+   * -column aisles, so they bring their own builder instead.
+   */
+  build?: (windowSide: Classroom['windowSide']) => Classroom;
 }
 
 const TEMPLATES: Template[] = [
@@ -71,6 +77,18 @@ const TEMPLATES: Template[] = [
     pairDesks: false,
     cols: 11,
     aisleCols: [1, 3, 5, 7, 9],
+  },
+  {
+    key: 'horseshoe',
+    name: 'ㄷ자 토론 대형',
+    description: '벽을 따라 둘러앉아 서로의 얼굴을 봅니다. 칠판 쪽이 열려 있습니다. 24자리',
+    build: (windowSide) => createHorseshoeClassroom({ windowSide }),
+  },
+  {
+    key: 'fan',
+    name: '반원형',
+    description: '뒤로 갈수록 한 줄씩 넓어져, 앞사람 뒤통수에 가리지 않습니다. 28자리',
+    build: (windowSide) => createFanClassroom({ windowSide }),
   },
   {
     key: 'plain',
@@ -163,13 +181,15 @@ export function ClassroomScreen() {
                   className="w-full rounded-lg border border-slate-200 p-2.5 text-left text-xs hover:border-blue-400 dark:border-slate-700"
                   onClick={() =>
                     setClassroom(
-                      createClassroom({
-                        rows: template.rows,
-                        cols: template.cols,
-                        pairDesks: template.pairDesks,
-                        aisleCols: template.aisleCols,
-                        windowSide: classroom.windowSide,
-                      }),
+                      template.build
+                        ? template.build(classroom.windowSide)
+                        : createClassroom({
+                            rows: template.rows ?? 5,
+                            cols: template.cols ?? 6,
+                            pairDesks: template.pairDesks ?? false,
+                            aisleCols: template.aisleCols,
+                            windowSide: classroom.windowSide,
+                          }),
                     )
                   }
                 >

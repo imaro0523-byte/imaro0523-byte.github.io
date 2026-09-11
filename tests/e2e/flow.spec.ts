@@ -30,6 +30,24 @@ async function loadSample(page: Page) {
   await expect(page.getByRole('heading', { name: '학생 명단' })).toBeVisible();
 }
 
+/**
+ * Indexes of the seat cards that actually hold a student.
+ *
+ * A room built for groups has empty slots in it — 25 students in six islands
+ * of five leaves five — so «the first seat card» is not reliably somebody's
+ * seat. Tests that need an occupied seat have to ask for one.
+ */
+async function occupiedSeatIndexes(page: Page, wanted: number): Promise<number[]> {
+  const cards = page.locator('.seat-card');
+  const total = await cards.count();
+  const found: number[] = [];
+  for (let i = 0; i < total && found.length < wanted; i += 1) {
+    if (!(await cards.nth(i).innerText()).includes('빈자리')) found.push(i);
+  }
+  expect(found).toHaveLength(wanted);
+  return found;
+}
+
 test.describe('자리배치 도우미 — 주요 흐름', () => {
   test('나이스 엑셀을 올려 명단을 인식한다', async ({ page }) => {
     const net = watchNetwork(page);
@@ -423,9 +441,14 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
     await page.getByRole('button', { name: '자리 잠그기' }).click();
-    const firstSeat = page.locator('.seat-card').first();
-    const lockedLabel = await firstSeat.innerText();
-    await firstSeat.click();
+    const [locked] = await occupiedSeatIndexes(page, 1);
+    const seat = page.locator('.seat-card').nth(locked as number);
+    // The aria-label is «N번째 줄 M번 자리, 학생NN» — seat and student, which is
+    // exactly what locking promises. The visible text also carries a 모둠 badge,
+    // and group numbering is redone on every run, so comparing the whole card
+    // would fail on a change the lock never claimed to prevent.
+    const lockedLabel = await seat.getAttribute('aria-label');
+    await seat.click();
     await expect(page.getByText(/지금 1곳 잠김/)).toBeVisible();
 
     await page.getByRole('button', { name: '다시 만들기' }).click();
@@ -433,7 +456,11 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
-    await expect(page.locator('.seat-card').first()).toHaveText(lockedLabel);
+    // Same seat, same student, despite a different seed.
+    await expect(page.locator('.seat-card').nth(locked as number)).toHaveAttribute(
+      'aria-label',
+      lockedLabel as string,
+    );
   });
 
   test('두 자리를 직접 맞바꾼다', async ({ page }) => {
@@ -443,14 +470,15 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
     const seats = page.locator('.seat-card');
-    const before0 = await seats.nth(0).innerText();
-    const before1 = await seats.nth(1).innerText();
+    const [a, b] = await occupiedSeatIndexes(page, 2);
+    const before0 = await seats.nth(a as number).innerText();
+    const before1 = await seats.nth(b as number).innerText();
 
-    await seats.nth(0).click();
-    await seats.nth(1).click();
+    await seats.nth(a as number).click();
+    await seats.nth(b as number).click();
 
-    await expect(seats.nth(0)).toHaveText(before1);
-    await expect(seats.nth(1)).toHaveText(before0);
+    await expect(seats.nth(a as number)).toHaveText(before1, { useInnerText: true });
+    await expect(seats.nth(b as number)).toHaveText(before0, { useInnerText: true });
   });
 
   test('PNG와 JSON 백업을 내려받는다', async ({ page }) => {

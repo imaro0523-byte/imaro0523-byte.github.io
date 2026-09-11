@@ -352,7 +352,7 @@ export function GenerateScreen() {
                 />
               </div>
               <div className="flex flex-wrap gap-1">
-                {[4, 5, 6, 7, 8].map((n) => (
+                {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                   <button key={n} type="button" className="btn-secondary px-2 py-1 text-xs"
                     onClick={() => setOptions({ groupCount: n, chosenPlan: null })}>
                     {n}모둠
