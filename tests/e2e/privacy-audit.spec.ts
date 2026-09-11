@@ -129,10 +129,11 @@ test.describe('개인정보 감사 — 프로덕션 빌드', () => {
     await loadSampleWithMarkers(page);
 
     await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+    // 모둠 배치 is chosen here now, not on the 자리 만들기 screen.
+    await page.getByRole('button', { name: /모둠 배치/ }).click();
     await page.getByRole('button', { name: '4. 조건 정하기' }).click();
     await page.getByRole('button', { name: /일반 수업/ }).click();
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 

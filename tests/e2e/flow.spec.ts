@@ -48,6 +48,18 @@ async function occupiedSeatIndexes(page: Page, wanted: number): Promise<number[]
   return found;
 }
 
+/**
+ * Chooses 모둠 배치 on the classroom screen.
+ *
+ * That choice used to be four radio-style cards on «자리 만들기», asked after
+ * the room was already built. It now lives where the room is shaped, and both
+ * screens read it, so a test that wants groups says so here.
+ */
+async function chooseGroupPlan(page: Page) {
+  await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+  await page.getByRole('button', { name: /모둠 배치/ }).click();
+}
+
 test.describe('자리배치 도우미 — 주요 흐름', () => {
   test('나이스 엑셀을 올려 명단을 인식한다', async ({ page }) => {
     const net = watchNetwork(page);
@@ -77,7 +89,8 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
     await expect(page.getByText('배치할 학생 24명')).toBeVisible();
 
-    await page.getByRole('button', { name: /모둠 편성만/ }).click();
+    // The group plan is decided — and previewed — where the room is shaped.
+    await chooseGroupPlan(page);
     await page.getByRole('button', { name: '6모둠', exact: true }).click();
     // 24 into 6 divides evenly once the excluded student is out of the count.
     await expect(page.getByText('6모둠 — 4, 4, 4, 4, 4, 4명')).toBeVisible();
@@ -86,17 +99,21 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await page.getByRole('button', { name: '2. 학생 명단' }).click();
     await page.getByRole('button', { name: '되돌리기' }).click();
     await expect(page.getByText('배치 대상 25명')).toBeVisible();
-    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
+    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
     await expect(page.getByText('6모둠 — 5, 4, 4, 4, 4, 4명')).toBeVisible();
+
+    // And «자리 만들기» reports it back rather than asking again.
+    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
+    await expect(page.getByText('6모둠 (5·4·4·4·4·4명)')).toBeVisible();
   });
 
   test('25명을 6모둠으로 나누고 자리에 배치한다', async ({ page }) => {
     const net = watchNetwork(page);
     await loadSample(page);
 
-    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
+    await chooseGroupPlan(page);
     await expect(page.getByText('6모둠 — 5, 4, 4, 4, 4, 4명')).toBeVisible();
+    await page.getByRole('button', { name: '5. 자리 만들기' }).click();
 
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
@@ -196,7 +213,7 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
 
   test('교실 화면에서 6모둠을 만들면 섬 6개가 그려진다', async ({ page }) => {
     await loadSample(page);
-    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+    await chooseGroupPlan(page);
 
     // 25 students into 6 groups is 5·4·4·4·4·4, and the preview must say so
     // before anything is built.
@@ -224,7 +241,7 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
 
   test('인원이 많은 모둠의 자리를 고를 수 있고, 자리 만들기가 그것을 존중한다', async ({ page }) => {
     await loadSample(page);
-    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+    await chooseGroupPlan(page);
 
     // 25 into 6 leaves one group of five, and by default it is 1모둠.
     await expect(page.getByRole('button', { name: '1모둠 5명' })).toBeVisible();
@@ -233,7 +250,7 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     await page.getByRole('button', { name: '5모둠 4명' }).click();
     await expect(page.getByRole('button', { name: '5모둠 5명' })).toBeVisible();
     await expect(page.getByRole('button', { name: '1모둠 4명' })).toBeVisible();
-    await expect(page.getByText(/6모둠 — 4, 4, 4, 4, 5, 4명/)).toBeVisible();
+    await expect(page.getByText(/섬 순서 4 · 4 · 4 · 4 · 5 · 4명/)).toBeVisible();
 
     await page.getByRole('button', { name: '이 모양으로 교실 만들기' }).click();
 
@@ -252,7 +269,6 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     // Generating a group seating must keep the arrangement rather than
     // rebuilding it back to «biggest group first».
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
@@ -271,10 +287,10 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
   test('모둠 자리 배치는 모둠끼리 모여 앉고 다른 모둠과 떨어진다', async ({ page }) => {
     await loadSample(page);
 
+    await chooseGroupPlan(page);
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
-    // The island layout is offered by default rather than hidden in settings.
-    await expect(page.getByText('모둠 모양으로 교실 자동 만들기')).toBeVisible();
+    // The island room is what «모둠 배치» means now — there is no separate
+    // opt-in for it, and the assertions below are what prove it happened.
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
@@ -338,8 +354,8 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
 
   test('모둠 자리에서 학생을 옮기면 모둠 표시도 따라 바뀐다', async ({ page }) => {
     await loadSample(page);
+    await chooseGroupPlan(page);
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
 
@@ -571,11 +587,10 @@ test.describe('자리배치 도우미 — 주요 흐름', () => {
     const net = watchNetwork(page);
 
     await loadSample(page);
-    await page.getByRole('button', { name: '3. 교실 만들기' }).click();
+    await chooseGroupPlan(page);
     await page.getByRole('button', { name: '4. 조건 정하기' }).click();
     await page.getByRole('button', { name: /일반 수업/ }).click();
     await page.getByRole('button', { name: '5. 자리 만들기' }).click();
-    await page.getByRole('button', { name: /모둠 \+ 자리 배치/ }).click();
     await page.getByRole('button', { name: '자리 만들기', exact: true }).click();
     await expect(page.getByRole('heading', { name: '결과 보기' })).toBeVisible();
     await page.getByRole('button', { name: '학생 관점으로 보기' }).click();

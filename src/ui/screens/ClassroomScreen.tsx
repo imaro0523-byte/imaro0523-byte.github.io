@@ -12,17 +12,11 @@ import { createHorseshoeClassroom, createRingClassroom } from '@/core/layout/sha
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS, type Classroom } from '@/core/model/types';
-import {
-  arrangeSizes,
-  hasUnevenSizes,
-  largerGroupCount,
-  partitionByCount,
-  PartitionError,
-} from '@/core/solver/partition';
-import { safeErrorMessage } from '@/lib/log';
+import { arrangeSizes, hasUnevenSizes, largerGroupCount } from '@/core/solver/partition';
+import { planGroupSizes } from '@/core/solver/planning';
 import { useAppStore } from '@/store/useAppStore';
 import { SeatMap } from '../components/SeatMap';
-import { FlipIcon, GridIcon, UsersIcon, WarningIcon } from '../components/Icons';
+import { CheckIcon, FlipIcon, GridIcon, UsersIcon, WarningIcon } from '../components/Icons';
 
 const GROUP_COUNT_CHOICES = [2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -34,6 +28,8 @@ interface Template {
   cols?: number;
   pairDesks?: boolean;
   aisleCols?: number[];
+  /** Shown before the fold. The rest are one click away, not gone. */
+  common?: boolean;
   /**
    * Shapes whose empty part is in the middle cannot be described by whole
    * -column aisles, so they bring their own builder instead.
@@ -44,6 +40,7 @@ interface Template {
 const TEMPLATES: Template[] = [
   {
     key: 'pairs3',
+    common: true,
     name: '2인 책상 3분단',
     description: '가장 흔한 교실. 두 명씩 앉고 분단 사이에 통로가 있습니다. 30자리',
     rows: 5,
@@ -68,6 +65,7 @@ const TEMPLATES: Template[] = [
   },
   {
     key: 'exam',
+    common: true,
     // Desks pulled apart, one student each, with an aisle between every column
     // so nobody sits within reach of a neighbour. Pair it with «번호순으로
     // 앉히기» on the next screen for a room a teacher can walk with a roster.
@@ -92,6 +90,7 @@ const TEMPLATES: Template[] = [
   },
   {
     key: 'plain',
+    common: true,
     name: '한 명씩 5줄 6칸',
     description: '통로 없이 한 명씩 앉는 단순한 격자입니다. 30자리',
     rows: 5,
@@ -123,6 +122,10 @@ export function ClassroomScreen() {
   const viewpoint = useAppStore((s) => s.settings.viewpoint);
   const setViewpoint = useAppStore((s) => s.setViewpoint);
   const setStep = useAppStore((s) => s.setStep);
+
+  const plan = useAppStore((s) => s.generate.plan);
+  const setOptions = useAppStore((s) => s.setGenerateOptions);
+  const [showAllShapes, setShowAllShapes] = useState(false);
 
   const activeCount = students.filter((s) => s.status === 'active').length;
   const seatCount = seatsOf(classroom).length;
@@ -168,13 +171,44 @@ export function ClassroomScreen() {
 
       <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="space-y-4">
+          {/*
+            One question, asked once. The «자리 만들기» screen reads this answer
+            instead of asking its own version of it.
+          */}
+          <div className="card space-y-2">
+            <h2 className="text-sm font-semibold">무엇을 만들까요</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['seats', '일반 자리 배치', '짝꿍 · 시험 등 줄 배치'],
+                  ['groups', '모둠 배치', '모둠끼리 모여 앉기'],
+                ] as const
+              ).map(([value, title, note]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setOptions({ plan: value })}
+                  className={`rounded-lg border p-2.5 text-left ${
+                    plan === value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                      : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{title}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{note}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {plan === 'seats' && (
           <div className="card space-y-3">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold">
               <GridIcon className="h-4 w-4" />
               교실 모양 고르기
             </h2>
             <div className="space-y-2">
-              {TEMPLATES.map((template) => (
+              {TEMPLATES.filter((t) => showAllShapes || t.common).map((template) => (
                 <button
                   key={template.key}
                   type="button"
@@ -203,9 +237,17 @@ export function ClassroomScreen() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              className="btn-ghost w-full text-xs"
+              onClick={() => setShowAllShapes((open) => !open)}
+            >
+              {showAllShapes ? '흔한 모양만 보기' : '다른 모양 더 보기 (분단 · ㄷ자 · 원형 …)'}
+            </button>
           </div>
+          )}
 
-          <GroupRoomBuilder />
+          {plan === 'groups' && <GroupRoomBuilder />}
 
           <div className="card space-y-3">
             <h2 className="text-sm font-semibold">직접 조절</h2>
@@ -309,28 +351,51 @@ function GroupRoomBuilder() {
   const classroom = useAppStore((s) => s.classroom);
   const setClassroom = useAppStore((s) => s.setClassroom);
 
-  const [groupCount, setGroupCount] = useState(6);
+  /**
+   * The group count lives in the store, not here.
+   *
+   * It used to be local state, and «자리 만들기» kept its own copy — so the
+   * teacher answered «몇 모둠» twice and the second answer rebuilt the room
+   * the first had shaped. One value, read by both screens.
+   */
+  const { groupCount, sizeMode, targetSize, minSize, maxSize, chosenPlan } = useAppStore(
+    (s) => s.generate,
+  );
+  const setOptions = useAppStore((s) => s.setGenerateOptions);
+  const setGroupCount = (count: number) => {
+    setOptions({ groupCount: count, chosenPlan: null });
+    // Slot numbers only mean something for a given island count.
+    setBigSlots([]);
+  };
+  const setSizeMode = (value: 'byCount' | 'bySize') =>
+    setOptions({ sizeMode: value, chosenPlan: null });
+  const setChosenPlan = (value: number[] | null) => setOptions({ chosenPlan: value });
+
   const [gap, setGap] = useState(1);
   /** Islands the teacher wants the larger groups to sit in, 0-based. */
   const [bigSlots, setBigSlots] = useState<number[]>([]);
 
   const activeCount = students.filter((s) => s.status === 'active').length;
 
-  const plan = useMemo(() => {
-    // With no roster yet, fall back to four per group so the preview is still
-    // meaningful rather than empty.
-    const total = activeCount > 0 ? activeCount : groupCount * 4;
-    try {
-      const base = partitionByCount(total, groupCount);
-      return { sizes: arrangeSizes(base, bigSlots), total, error: null as string | null };
-    } catch (caught) {
-      return {
-        sizes: [] as number[],
-        total,
-        error: caught instanceof PartitionError ? caught.message : safeErrorMessage(caught),
-      };
-    }
-  }, [activeCount, groupCount, bigSlots]);
+  // With no roster yet, fall back to four per group so the preview is still
+  // meaningful rather than empty.
+  const total = activeCount > 0 ? activeCount : groupCount * 4;
+
+  const { plans, planError } = useMemo(() => {
+    const result = planGroupSizes({ total, sizeMode, groupCount, targetSize, minSize, maxSize });
+    return { plans: result.plans, planError: result.error };
+  }, [total, sizeMode, groupCount, targetSize, minSize, maxSize]);
+
+  const plannedSizes = chosenPlan ?? plans[0]?.sizes ?? [];
+
+  const plan = useMemo(
+    () => ({
+      sizes: plannedSizes.length > 0 ? arrangeSizes(plannedSizes, bigSlots) : [],
+      total,
+      error: planError,
+    }),
+    [plannedSizes, bigSlots, total, planError],
+  );
 
   const build = () => {
     if (plan.sizes.length === 0) return;
@@ -375,29 +440,111 @@ function GroupRoomBuilder() {
         모둠마다 책상 섬을 만들고 사이를 통로로 비웁니다. 같은 모둠은 마주 보고 모여 앉습니다.
       </p>
 
-      <div>
-        <span className="label">모둠 수</span>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {GROUP_COUNT_CHOICES.map((count) => (
-            <button
-              key={count}
-              type="button"
-              onClick={() => {
-                setGroupCount(count);
-                // Slot numbers only mean something for a given island count.
-                setBigSlots([]);
-              }}
-              className={`rounded-lg border px-2.5 py-1 text-xs ${
-                groupCount === count
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                  : 'border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              {count}모둠
-            </button>
-          ))}
+        <div className="card space-y-3">
+          <h2 className="text-sm font-semibold">모둠 인원 정하기</h2>
+
+          <div className="flex flex-wrap gap-2 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={sizeMode === 'byCount'} onChange={() => { setSizeMode('byCount'); setChosenPlan(null); }} />
+              모둠 수로 정하기
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={sizeMode === 'bySize'} onChange={() => { setSizeMode('bySize'); setChosenPlan(null); }} />
+              모둠당 인원으로 정하기
+            </label>
+          </div>
+
+          {sizeMode === 'byCount' ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="label" htmlFor="gc">모둠 수</label>
+                <input
+                  id="gc"
+                  type="number"
+                  min={1}
+                  max={Math.max(1, total)}
+                  className="input w-24"
+                  value={groupCount}
+                  onChange={(e) => setGroupCount(Math.max(1, Number(e.target.value)))}
+                />
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {GROUP_COUNT_CHOICES.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`rounded-lg border px-2.5 py-1 text-xs ${
+                      groupCount === n
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                        : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                    onClick={() => setGroupCount(n)}
+                  >
+                    {n}모둠
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="label" htmlFor="ts">모둠당 인원</label>
+                <input id="ts" type="number" min={1} className="input w-20" value={targetSize}
+                  onChange={(e) => setOptions({ targetSize: Math.max(1, Number(e.target.value)), chosenPlan: null })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="mn">최소</label>
+                <input id="mn" type="number" min={1} className="input w-20" value={minSize}
+                  onChange={(e) => setOptions({ minSize: Math.max(1, Number(e.target.value)), chosenPlan: null })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="mx">최대</label>
+                <input id="mx" type="number" min={1} className="input w-20" value={maxSize}
+                  onChange={(e) => setOptions({ maxSize: Math.max(1, Number(e.target.value)), chosenPlan: null })} />
+              </div>
+            </div>
+          )}
+
+          {planError && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              {planError}
+            </p>
+          )}
+
+
+
+          {plans.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                {total}명을 나눌 수 있는 방법입니다. 원하는 것을 고르세요.
+              </p>
+              {plans.map((plan) => {
+                const selected = (chosenPlan ?? plans[0]?.sizes ?? []).join(',') === plan.sizes.join(',');
+                return (
+                  <button
+                    key={plan.groupCount}
+                    type="button"
+                    onClick={() => setChosenPlan(plan.sizes)}
+                    className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left ${
+                      selected ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {selected && <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />}
+                    <span className="text-sm">
+                      <span className="font-semibold">
+                        {plan.groupCount}모둠 — {plan.sizes.join(', ')}명
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {plan.note} 최대 인원 차이 {plan.maxDifference}명.
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
+
 
       <div>
         <span className="label">모둠 사이 간격</span>
@@ -463,15 +610,17 @@ function GroupRoomBuilder() {
         </div>
       )}
 
-      {plan.error ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{plan.error}</p>
-      ) : (
+      {/*
+        The plan card above says which sizes; this says which island gets
+        which, which is the thing the slot buttons change and the only place
+        that order is visible. Phrased differently on purpose — the two lines
+        used to be word for word identical.
+      */}
+      {plan.error === null && plan.sizes.length > 0 && (
         <p className="text-xs text-slate-600 dark:text-slate-400">
-          {activeCount > 0 ? `학생 ${activeCount}명을 ` : '학생 명단이 없어 한 모둠 4명으로 가정해 '}
-          <strong>
-            {groupCount}모둠 — {plan.sizes.join(', ')}명
-          </strong>
-          으로 나눈 교실을 만듭니다 (좌석 {plan.sizes.reduce((a, b) => a + b, 0)}석).
+          섬 순서 {plan.sizes.join(' · ')}명 · 좌석{' '}
+          {plan.sizes.reduce((a, b) => a + b, 0)}석
+          {activeCount === 0 && ' (명단이 없어 한 모둠 4명으로 가정)'}
         </p>
       )}
 

@@ -45,6 +45,20 @@ export const STEP_LABELS: Record<Step, string> = {
 export type GenerateMode = 'seats' | 'pairs' | 'groups' | 'groupSeats';
 
 /**
+ * What the teacher is making: rows of seats, or groups.
+ *
+ * This used to be four choices on the «자리 만들기» screen, decided after the
+ * room had already been built — which meant the group count was asked for
+ * twice, once to shape the room and once to fill it, and the second answer
+ * quietly rebuilt the room the first had made. One question, asked where the
+ * room is shaped, and both screens read the same answer.
+ *
+ * «2인 짝꿍» is not a third choice. A room of two-person desks seats pairs;
+ * that is what the desks are, and asking again adds nothing.
+ */
+export type SeatingPlan = 'seats' | 'groups';
+
+/**
  * Choices made on the «자리 만들기» screen.
  *
  * These live in the store rather than in the screen's own state so that going
@@ -52,7 +66,7 @@ export type GenerateMode = 'seats' | 'pairs' | 'groups' | 'groupSeats';
  * the teacher just entered.
  */
 export interface GenerateOptions {
-  mode: GenerateMode;
+  plan: SeatingPlan;
   sizeMode: 'byCount' | 'bySize';
   groupCount: number;
   targetSize: number;
@@ -73,9 +87,7 @@ export interface GenerateOptions {
 }
 
 const DEFAULT_GENERATE: GenerateOptions = {
-  // Most teachers arriving here want groups seated as groups, and the two-step
-  // dance of picking the mode every time was friction for the common case.
-  mode: 'groupSeats',
+  plan: 'seats',
   sizeMode: 'byCount',
   groupCount: 6,
   targetSize: 4,
