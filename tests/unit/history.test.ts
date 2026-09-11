@@ -6,10 +6,11 @@ import { BackupParseError, buildBackup, parseBackup } from '@/core/exportData/to
 import { buildWorkbook, readHistorySheet, workbookToBytes } from '@/core/exportData/toXlsx';
 import { TEACHER_FACING } from '@/core/exportData/redact';
 import { createClassroom, seatsOf } from '@/core/layout/grid';
-import type { ArrangementRecord, SeatAssignment, Student } from '@/core/model/types';
+import type { ArrangementRecord, Group, Grouping, SeatAssignment, Student } from '@/core/model/types';
 import { makeStudents } from '../support/students';
 import { mergeRecords } from '@/core/history';
 import { sameArrangement } from '@/core/history/record';
+import { classLabelOf, describeArrangement } from '@/core/exportData/describe';
 
 const classroom = createClassroom({ rows: 3, cols: 4, pairDesks: true });
 
@@ -318,5 +319,71 @@ describe('sameArrangement', () => {
 
   it('does not call a partial arrangement equal to a fuller one', () => {
     expect(sameArrangement(base(), base({ seatAssignment: { s1: 'a' } }))).toBe(false);
+  });
+});
+
+describe('배치 요약', () => {
+  const room = createClassroom({ rows: 4, cols: 4, name: '교실' });
+  const students = makeStudents(8);
+  const group = (index: number, memberIds: string[]): Group => ({
+    id: `g${index}`,
+    index,
+    colorIndex: index,
+    memberIds,
+    roles: {},
+    locked: false,
+  });
+  const grouping: Grouping = {
+    groups: [
+      group(1, [students[0]!.id, students[1]!.id, students[2]!.id, students[3]!.id]),
+      group(2, [students[4]!.id, students[5]!.id, students[6]!.id]),
+    ],
+    excludedIds: [],
+  };
+
+  it('tells seats, groups and both apart', () => {
+    const seats = { s1: students[0]!.id };
+    expect(describeArrangement({ classroom: room, grouping: null, assignment: seats, students }).kind)
+      .toBe('자리 배치');
+    expect(describeArrangement({ classroom: room, grouping, assignment: {}, students }).kind)
+      .toBe('모둠 편성만');
+    expect(describeArrangement({ classroom: room, grouping, assignment: seats, students }).kind)
+      .toBe('모둠 + 자리 배치');
+    expect(describeArrangement({ classroom: room, grouping: null, assignment: {}, students }).kind)
+      .toBe('배치 없음');
+  });
+
+  it('writes a line a teacher can scan', () => {
+    const summary = describeArrangement({ classroom: room, grouping, assignment: {}, students });
+    expect(summary.detail).toBe('8명 · 2모둠 (4, 3명)');
+  });
+
+  it('names the room only when the room has a name worth saying', () => {
+    const plain = describeArrangement({ classroom: room, grouping: null, assignment: {}, students });
+    expect(plain.detail).not.toContain('교실');
+
+    const shaped = createClassroom({ rows: 4, cols: 4, name: '원형 교실' });
+    const named = describeArrangement({ classroom: shaped, grouping: null, assignment: {}, students });
+    expect(named.detail).toContain('원형 교실');
+  });
+
+  it('counts only the students being placed', () => {
+    const withLeaver = [...students];
+    withLeaver[0] = { ...(students[0] as Student), status: 'transferOut' };
+    const summary = describeArrangement({
+      classroom: room,
+      grouping: null,
+      assignment: {},
+      students: withLeaver,
+    });
+    expect(summary.detail).toBe('7명');
+  });
+});
+
+describe('classLabelOf', () => {
+  it('prefers the class number, falls back to the grade, then says so', () => {
+    expect(classLabelOf('1-1', 1)).toBe('1-1');
+    expect(classLabelOf(undefined, 2)).toBe('2학년');
+    expect(classLabelOf('', undefined)).toBe('반 미지정');
   });
 });

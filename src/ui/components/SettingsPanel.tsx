@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 
 import { parseBackup } from '@/core/exportData/toJson';
+import { classLabelOf, describeArrangement } from '@/core/exportData/describe';
 import type { ArrangementRecord } from '@/core/model/types';
 import { safeErrorMessage } from '@/lib/log';
 import { disableOffline, enableOffline, isOfflineReady, serviceWorkerSupported } from '@/lib/pwa';
@@ -23,9 +24,27 @@ import { useAppStore } from '@/store/useAppStore';
 import { uuid } from '@/core/model/ids';
 import { TrashIcon, WarningIcon } from './Icons';
 
+/**
+ * Saves grouped by class, newest first inside each class and classes in name
+ * order, so «1-1» comes before «1-3» however the saves were made.
+ */
+function byClass(projects: readonly StoredProject[]): Array<[string, StoredProject[]]> {
+  const groups = new Map<string, StoredProject[]>();
+  for (const project of projects) {
+    const list = groups.get(project.title) ?? [];
+    list.push(project);
+    groups.set(project.title, list);
+  }
+  for (const list of groups.values()) {
+    list.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  }
+  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+}
+
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const state = useAppStore();
   const [projects, setProjects] = useState<StoredProject[]>([]);
+  const [note, setNote] = useState('');
   const [offlineReady, setOfflineReady] = useState(false);
   const [confirmingWipe, setConfirmingWipe] = useState(false);
   const [report, setReport] = useState<WipeReport | null>(null);
@@ -50,9 +69,18 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const save = async () => {
     setError(null);
     try {
+      const summary = describeArrangement({
+        classroom: state.classroom,
+        grouping: state.grouping,
+        assignment: state.assignment,
+        students: state.students,
+      });
       await saveProject({
         id: uuid(),
-        title: state.meta?.classNumber ?? '이름 없는 배치',
+        title: classLabelOf(state.meta?.classNumber, state.meta?.grade),
+        kind: summary.kind,
+        detail: summary.detail,
+        note: note.trim(),
         meta: state.meta,
         students: state.students,
         classroom: state.classroom,
@@ -63,6 +91,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         seed: state.seed,
       });
       state.markSaved();
+      setNote('');
       setMessage('이 브라우저에 저장했습니다.');
       refresh();
     } catch (caught) {
@@ -192,37 +221,82 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         {state.settings.storageEnabled && (
           <>
+            <div>
+              <label className="label" htmlFor="save-note">
+                메모 (선택) — 무엇을 위한 배치인지 적어 두면 나중에 찾기 쉽습니다
+              </label>
+              <input
+                id="save-note"
+                className="input"
+                placeholder="예: 2학기 첫 모둠 / 중간고사 대형"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
             <button type="button" className="btn-secondary" onClick={() => void save()}>
               지금 로컬에 저장
             </button>
             {projects.length > 0 && (
-              <ul className="space-y-1 text-xs">
-                {projects.map((project) => (
-                  <li key={project.id} className="flex items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700">
-                    <span className="flex-1">
-                      {project.title} · {project.students.length}명 ·{' '}
-                      {new Date(project.savedAt).toLocaleString('ko-KR')}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-blue-600 hover:underline"
-                      onClick={() => {
-                        state.hydrate(project);
-                        onClose();
-                      }}
-                    >
-                      불러오기
-                    </button>
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => void deleteProject(project.id).then(refresh)}
-                    >
-                      삭제
-                    </button>
-                  </li>
+              <div className="space-y-3 text-xs">
+                {/*
+                  Grouped by class, because that is how a teacher looks for one.
+                  A 교과 교사 with five classes was otherwise reading one flat
+                  list of «1-1», «1-3», «1-1» sorted only by when they pressed
+                  save.
+                */}
+                {byClass(projects).map(([className, saves]) => (
+                  <div key={className} className="space-y-1">
+                    <h4 className="font-semibold text-slate-700 dark:text-slate-200">
+                      {className}
+                      <span className="ml-1 font-normal text-slate-500">{saves.length}개</span>
+                    </h4>
+                    <ul className="space-y-1">
+                      {saves.map((project) => (
+                        <li
+                          key={project.id}
+                          className="flex items-start gap-2 rounded border border-slate-200 p-2 dark:border-slate-700"
+                        >
+                          <div className="flex-1 space-y-0.5">
+                            <div className="font-medium">
+                              {project.kind ?? '배치'}
+                              {project.note ? (
+                                <span className="ml-1 font-normal text-slate-600 dark:text-slate-300">
+                                  — {project.note}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="text-slate-500">
+                              {project.detail ?? `${project.students.length}명`}
+                            </div>
+                            <div className="text-slate-400">
+                              {new Date(project.savedAt).toLocaleString('ko-KR')}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col gap-1">
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:underline"
+                              onClick={() => {
+                                state.hydrate(project);
+                                onClose();
+                              }}
+                            >
+                              불러오기
+                            </button>
+                            <button
+                              type="button"
+                              className="text-red-600 hover:underline"
+                              onClick={() => void deleteProject(project.id).then(refresh)}
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </>
         )}

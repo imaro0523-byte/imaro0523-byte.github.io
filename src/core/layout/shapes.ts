@@ -47,11 +47,12 @@ export interface ShapeOptions {
  * the discussion layout: every student can see every other student's face,
  * which is the whole point and the reason it is worth the floor space.
  *
- * Seats = 2 × rows + (cols − 2). The default is 24, enough for most classes;
- * a teacher who needs more adds a row or a column on this same screen.
+ * Seats = 2 × rows + (cols − 2). The default is 26, which covers a class of
+ * twenty-five with one spare; a teacher who needs more adds a row or a column
+ * on this same screen.
  */
 export function createHorseshoeClassroom(
-  { rows = 7, cols = 12, windowSide }: ShapeOptions & { rows?: number; cols?: number } = {},
+  { rows = 7, cols = 14, windowSide }: ShapeOptions & { rows?: number; cols?: number } = {},
 ): Classroom {
   const classroom = createClassroom({ rows, cols, name: 'ㄷ자 토론 교실', windowSide });
 
@@ -88,6 +89,37 @@ export function createFanClassroom(
     const width = frontWidth + 2 * row;
     const start = (cols - width) / 2;
     return col >= start && col < start + width ? 'front' : null;
+  });
+
+  return classroom;
+}
+
+/**
+ * 원형 — a closed ring around all four walls.
+ *
+ * The horseshoe leaves the board side open so the teacher can stand in the
+ * gap. A ring does not: the class closes the circle and everyone, the teacher
+ * included, is part of it. It is the shape for a whole-class discussion where
+ * nobody is at the head of the table, and it is worth keeping separate from
+ * the horseshoe rather than treating one as a variant of the other, because
+ * the difference is the point.
+ *
+ * Seats = 2 × rows + 2 × cols − 4 (the corners belong to both sides once).
+ * The default is 26.
+ */
+export function createRingClassroom(
+  { rows = 6, cols = 9, windowSide }: ShapeOptions & { rows?: number; cols?: number } = {},
+): Classroom {
+  const classroom = createClassroom({ rows, cols, name: '원형 교실', windowSide });
+
+  carve(classroom, (row, col) => {
+    // Corners resolve to the row's direction; either answer is equally true of
+    // a corner seat, and picking one keeps the rule short.
+    if (row === 0) return 'back'; // 칠판 쪽 줄 — 교실 안쪽(뒤)을 본다
+    if (row === rows - 1) return 'front'; // 뒷줄 — 안쪽(앞)을 본다
+    if (col === 0) return 'right';
+    if (col === cols - 1) return 'left';
+    return null;
   });
 
   return classroom;

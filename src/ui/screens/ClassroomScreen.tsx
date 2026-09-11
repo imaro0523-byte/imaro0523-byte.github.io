@@ -8,7 +8,11 @@
 import { useMemo, useState } from 'react';
 
 import { createClassroom, divisionColumns, MAX_COLS, MAX_ROWS, seatsOf } from '@/core/layout/grid';
-import { createFanClassroom, createHorseshoeClassroom } from '@/core/layout/shapes';
+import {
+  createFanClassroom,
+  createHorseshoeClassroom,
+  createRingClassroom,
+} from '@/core/layout/shapes';
 import { createGroupClassroom, MAX_GAP } from '@/core/layout/groupIslands';
 import { otherViewpoint } from '@/core/layout/viewpoint';
 import { VIEWPOINT_LABELS, type Classroom } from '@/core/model/types';
@@ -81,8 +85,14 @@ const TEMPLATES: Template[] = [
   {
     key: 'horseshoe',
     name: 'ㄷ자 토론 대형',
-    description: '벽을 따라 둘러앉아 서로의 얼굴을 봅니다. 칠판 쪽이 열려 있습니다. 24자리',
+    description: '벽을 따라 둘러앉아 서로의 얼굴을 봅니다. 칠판 쪽이 열려 있습니다. 26자리',
     build: (windowSide) => createHorseshoeClassroom({ windowSide }),
+  },
+  {
+    key: 'ring',
+    name: '원형 (둘러앉기)',
+    description: '사방을 빙 둘러앉아 가운데를 봅니다. 머리 자리가 없는 학급 전체 토의용. 26자리',
+    build: (windowSide) => createRingClassroom({ windowSide }),
   },
   {
     key: 'fan',
@@ -189,6 +199,11 @@ export function ClassroomScreen() {
                             pairDesks: template.pairDesks ?? false,
                             aisleCols: template.aisleCols,
                             windowSide: classroom.windowSide,
+                            // The room carries its shape's name so a saved
+                            // arrangement can say «시험 대형» rather than just
+                            // «자리 배치», which is the difference between a
+                            // 담임's two saves being tellable apart or not.
+                            name: template.name,
                           }),
                     )
                   }
@@ -338,6 +353,28 @@ function GroupRoomBuilder() {
     );
   };
 
+  /**
+   * 지식시장 (knowledge market): the same islands, arranged as a street.
+   *
+   * In this model two of each four keep the stall and explain, while the other
+   * two walk to the next group, three times at five-minute intervals. That
+   * only works if «the next group» is obvious and the walk is short, so the
+   * islands go in two facing rows with the widest aisle the builder allows —
+   * stalls down both sides of a market street — instead of the tidy block a
+   * normal group room uses.
+   */
+  const buildMarket = () => {
+    if (plan.sizes.length === 0) return;
+    setClassroom(
+      createGroupClassroom({
+        sizes: plan.sizes,
+        gap: MAX_GAP,
+        islandsPerRow: Math.ceil(plan.sizes.length / 2),
+        windowSide: classroom.windowSide,
+      }),
+    );
+  };
+
   return (
     <div className="card space-y-3">
       <h2 className="flex items-center gap-1.5 text-sm font-semibold">
@@ -456,6 +493,19 @@ function GroupRoomBuilder() {
       >
         이 모양으로 교실 만들기
       </button>
+
+      <button
+        type="button"
+        className="btn-secondary w-full"
+        onClick={buildMarket}
+        disabled={plan.sizes.length === 0}
+      >
+        지식시장 대형으로 만들기
+      </button>
+      <p className="text-[11px] text-slate-500">
+        같은 모둠 수로, 섬을 마주 보는 두 줄로 놓고 가운데를 넓게 비웁니다. 모둠마다 두 명은
+        남아 설명하고 두 명이 옆 모둠으로 옮겨 다니는 수업에 맞춘 배치입니다.
+      </p>
 
       <p className="text-[11px] text-slate-500">
         «자리 만들기»에서 «모둠 + 자리 배치»를 고르면 이 과정이 자동으로 이루어지므로, 여기서

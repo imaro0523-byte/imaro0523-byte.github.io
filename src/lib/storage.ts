@@ -78,7 +78,17 @@ export interface StoredProject {
   id: string;
   schemaVersion: number;
   savedAt: string;
+  /** The class this save belongs to, used to group the list. */
   title: string;
+  /**
+   * What kind of arrangement this was — seats, groups, or both — and a line
+   * describing it. Optional because saves made before this existed have
+   * neither, and an old save is still worth loading.
+   */
+  kind?: string;
+  detail?: string;
+  /** Whatever the teacher wanted to write on it. */
+  note?: string;
   meta: RosterMeta | null;
   students: Student[];
   classroom: Classroom;

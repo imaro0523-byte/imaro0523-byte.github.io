@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { buildAdjacency, partnerPairs, seatDistance } from '@/core/layout/adjacency';
 import { addColumn, addRow, createClassroom, divisionColumns, seatAt, seatsOf } from '@/core/layout/grid';
 import { assignInNumberOrder } from '@/core/layout/numberOrder';
-import { createFanClassroom, createHorseshoeClassroom } from '@/core/layout/shapes';
+import {
+  createFanClassroom,
+  createHorseshoeClassroom,
+  createRingClassroom,
+} from '@/core/layout/shapes';
 import {
   boardPlacement,
   fromDisplay,
@@ -267,6 +271,10 @@ describe('번호순 배치', () => {
 describe('ㄷ자 토론 대형', () => {
   const room = createHorseshoeClassroom();
 
+  it('seats a class of twenty-five with one spare', () => {
+    expect(seatsOf(room)).toHaveLength(26);
+  });
+
   it('seats both side walls and the back, leaving the board side open', () => {
     // 2 × rows on the walls, plus the back row between them.
     expect(seatsOf(room)).toHaveLength(2 * room.rows + (room.cols - 2));
@@ -320,5 +328,34 @@ describe('반원형', () => {
 
   it('keeps everyone facing the board', () => {
     expect(seatsOf(room).every((seat) => seat.facing === 'front')).toBe(true);
+  });
+});
+
+describe('원형 (둘러앉기)', () => {
+  const room = createRingClassroom();
+
+  it('closes the ring on all four walls', () => {
+    // Corners are counted once, not twice.
+    expect(seatsOf(room)).toHaveLength(2 * room.rows + 2 * room.cols - 4);
+
+    for (let row = 1; row < room.rows - 1; row += 1) {
+      for (let col = 1; col < room.cols - 1; col += 1) {
+        expect(seatAt(room, row, col)?.kind).toBe('aisle');
+      }
+    }
+  });
+
+  it('leaves no opening, unlike the horseshoe', () => {
+    // The horseshoe's front row is empty in the middle; a ring's is not.
+    const frontMiddle = seatAt(room, 0, Math.floor(room.cols / 2));
+    expect(frontMiddle?.kind).toBe('seat');
+    expect(seatAt(createHorseshoeClassroom(), 0, 5)?.kind).toBe('aisle');
+  });
+
+  it('turns every wall inward', () => {
+    expect(seatAt(room, 0, 4)?.facing).toBe('back'); // 칠판 쪽 줄이 안을 본다
+    expect(seatAt(room, room.rows - 1, 4)?.facing).toBe('front');
+    expect(seatAt(room, 2, 0)?.facing).toBe('right');
+    expect(seatAt(room, 2, room.cols - 1)?.facing).toBe('left');
   });
 });
